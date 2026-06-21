@@ -167,6 +167,52 @@ az storage blob upload-batch `
 
 ---
 
+## 🧩 Running as a module of the hub
+
+This site can run two ways from the **same code**:
+
+1. **Standalone** at a domain root (default) — `npm run build`, then deploy `out/`.
+2. **As a module** mounted under the central hub at a path prefix, e.g.
+   `https://uzoniandev.com/mcp-server/`.
+
+Module behavior is driven by `src/lib/module.ts` and two build-time env vars:
+
+| Variable                | Default                    | Purpose                                                                                  |
+| ----------------------- | -------------------------- | ---------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_BASE_PATH` | `""` (root)                | Path the module mounts at, e.g. `/mcp-server`. Sets Next.js `basePath` + `assetPrefix`.  |
+| `NEXT_PUBLIC_HUB_URL`   | `https://uzoniandev.com`   | The central hub origin. Powers the **All Tutorials** link and the **module switcher**.   |
+
+Because navigation uses `next/link` and `next/navigation`, internal links and
+assets pick up `basePath` automatically — no per-link rewrites needed.
+
+### Build the module artifact
+
+```powershell
+npm run build:module          # defaults to /mcp-server
+```
+
+This produces a `dist/` folder with the site nested under the prefix
+(`dist/mcp-server/...`) so the static files line up with the prefixed asset URLs,
+plus a deploy-root `staticwebapp.config.json` whose navigation fallback is
+prefix-aware. Deploy `dist/` as the module's Static Web App.
+
+### Wire it into the hub
+
+Put one router in front of the modules so they share a single domain. With
+**Azure Front Door**:
+
+| Route pattern   | Origin                                            |
+| --------------- | ------------------------------------------------- |
+| `/mcp-server/*` | this module's Static Web App (path **preserved**) |
+| `/*` (default)  | the hub site                                      |
+
+The shared top bar (**All Tutorials** + **module switcher**) gives users
+consistent cross-module navigation. To list additional modules in the switcher,
+add them to the `modules` array in `src/lib/module.ts` (or have the hub inject
+that list).
+
+---
+
 ## 📁 Project structure
 
 ```text
@@ -180,11 +226,14 @@ MCP Tutorial Website
 |   |-- components               # reusable UI (callouts, diagrams, code, etc.)
 |   |-- lib
 |       |-- chapters.ts          # chapter manifest, nav order, prev/next
+|       |-- module.ts            # hub module manifest (basePath, hub URL, switcher)
 |       |-- glossary.ts          # glossary terms
 |       |-- search-index.ts      # static search index + ranking
+|-- scripts
+|   |-- build-module.mjs         # builds the prefixed `dist/` module artifact
 |-- public
-|   |-- staticwebapp.config.json # Azure Static Web Apps config
-|-- next.config.mjs              # static export config
+|   |-- staticwebapp.config.json # Azure Static Web Apps config (standalone/root)
+|-- next.config.mjs              # static export config (basePath-aware)
 |-- tailwind.config.ts
 |-- package.json
 ```
