@@ -4,202 +4,327 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { ConceptCheck } from "@/components/ConceptCheck";
 import { Mermaid } from "@/components/Mermaid";
 import { Table, Code, Compare } from "@/components/content";
+import { VideoCard } from "@/components/VideoCard";
 
-export const metadata = { title: "Azure Deployment" };
-
-const DEPLOY = `flowchart LR
-    ACR[Azure Container Registry] --> Host[App Service or Container Apps]
-    Host --> APIM[API Management]
-    KeyVault[(Key Vault)] --> APIM
-    KeyVault --> Host
-    Host --> Insights[(Application Insights)]
-    APIM --> Connector[Copilot Studio connector]`;
+export const metadata = { title: "Deployment" };
 
 export default function Page() {
   return (
     <ChapterShell
       slug="deployment"
-      eyebrow="Chapter 9 · Integrate & Ship"
-      title="Azure Deployment"
-      intro="Ship the server to Azure with one script. Bicep provisions everything, the image is built in ACR, and APIM fronts the app. You choose App Service or Container Apps."
+      eyebrow="Chapter 9 · Ship"
+      title="Deploy the MCP Server to Azure"
+      intro="Your MCP server runs locally — now it needs a production home. This chapter shows how to host it on Azure with Bicep infrastructure-as-code, put API Management in front, store secrets in Key Vault, and deploy with azd or the Azure CLI."
       learningGoals={[
-        "Run the deployment script for App Service or Container Apps",
-        "Identify the Azure resources each Bicep file creates",
-        "Understand the APIM policy and replace its placeholder IP ranges",
-        "Choose between App Service and Container Apps",
+        "Choose between Container Apps and App Service for hosting",
+        "Write Bicep to provision the MCP server infrastructure",
+        "Place API Management in front of the MCP endpoint",
+        "Store and reference secrets in Azure Key Vault",
+        "Deploy with azd up or az CLI commands",
       ]}
       toc={[
-        { id: "deploy", label: "Primary deployment command" },
-        { id: "topology", label: "Deployment topology" },
-        { id: "appservice", label: "App Service resources" },
-        { id: "containerapps", label: "Container Apps resources" },
-        { id: "apim-policy", label: "APIM policy & IP ranges" },
-        { id: "choose", label: "App Service vs Container Apps" },
+        { id: "targets", label: "Hosting targets" },
+        { id: "bicep", label: "Bicep IaC" },
+        { id: "apim", label: "API Management" },
+        { id: "key-vault", label: "Key Vault" },
+        { id: "deploy", label: "Deploy" },
+        { id: "verify", label: "Verify" },
       ]}
       summary={
         <ul>
           <li>
-            <Code>deploy.ps1</Code> creates the resource group, builds the image
-            in ACR, deploys Bicep, and prints the MCP endpoint and connector
-            host.
+            <strong>Container Apps</strong> is the default choice for MCP servers
+            (scale-to-zero, container-native).
           </li>
           <li>
-            Both hosting options put APIM in front and use a Key Vault-backed
-            gateway secret.
+            <strong>Bicep</strong> defines the infrastructure declaratively and
+            reproducibly.
           </li>
           <li>
-            Replace placeholder IP ranges in the APIM policy with connector
-            egress / service tags before production.
+            <strong>API Management</strong> adds rate-limiting, observability,
+            and a stable public URL.
+          </li>
+          <li>
+            <strong>Key Vault</strong> stores secrets; the app reads them at
+            runtime via managed identity.
+          </li>
+          <li>
+            <Code>azd up</Code> provisions and deploys in one command.
           </li>
         </ul>
       }
       reviewItems={[
-        { id: "deploy", label: "I ran az login and the deploy script" },
-        { id: "resources", label: "I can list the resources Bicep creates" },
-        { id: "ip", label: "I replaced the placeholder IP ranges (or waived formally)" },
-        { id: "choose", label: "I chose App Service or Container Apps deliberately" },
+        { id: "target", label: "I can choose the right hosting target" },
+        { id: "bicep", label: "I can read and extend the Bicep template" },
+        { id: "apim", label: "I understand why APIM sits in front" },
+        { id: "kv", label: "I know how secrets flow from Key Vault to the app" },
+        { id: "dep", label: "I can deploy with azd up" },
       ]}
     >
-      <h2 id="deploy">Primary deployment command</h2>
-      <p>From the project root:</p>
-      <CodeBlock
-        language="powershell"
-        code={`az login
-.\\scripts\\deploy.ps1 \`
-    -ResourceGroup rg-jira-mcp \`
-    -Location eastus \`
-    -Acr myacr \`
-    -PublisherEmail you@example.com`}
-      />
-      <p>The script:</p>
-      <ol>
-        <li>Creates the resource group.</li>
-        <li>Builds the image in Azure Container Registry.</li>
-        <li>Deploys Azure resources with Bicep.</li>
-        <li>Prints the MCP endpoint.</li>
-        <li>Prints the connector host.</li>
-      </ol>
+      <h2 id="targets">Hosting targets</h2>
       <p>
-        Use Container Apps instead of App Service with the{" "}
-        <Code>-Hosting</Code> switch:
+        Azure offers several compute options, but for a stateless MCP server
+        exposed over streamable HTTP, two stand out: Azure Container Apps and
+        Azure App Service. Both support HTTPS, custom domains, and managed
+        identity.
       </p>
-      <CodeBlock
-        language="powershell"
-        code={`.\\scripts\\deploy.ps1 \`
-    -ResourceGroup rg-jira-mcp \`
-    -Location eastus \`
-    -Acr myacr \`
-    -PublisherEmail you@example.com \`
-    -Hosting ContainerApps`}
-      />
-
-      <h2 id="topology">Deployment topology</h2>
-      <Mermaid
-        chart={DEPLOY}
-        alt="Azure Container Registry provides the image to the host (App Service or Container Apps). The host sits behind API Management. Key Vault provides secrets to both API Management and the host. The host sends telemetry to Application Insights. API Management is consumed by the Copilot Studio connector."
-        caption="Both hosting options share this shape: ACR → host → APIM → connector, with Key Vault and App Insights alongside."
-      />
-
-      <h2 id="appservice">App Service deployment resources</h2>
-      <p>
-        <Code>infra\\main.bicep</Code> creates:
-      </p>
-      <Table
-        headers={["Resource", "Purpose"]}
-        rows={[
-          ["Log Analytics workspace", "Stores logs."],
-          ["Application Insights", "App telemetry."],
-          ["Key Vault", "Gateway secret."],
-          ["Linux App Service plan", "Hosts the container."],
-          ["Linux Web App", "Runs the MCP container."],
-          ["Autoscale setting", "Scales the App Service plan."],
-          ["API Management", "Public gateway."],
-          ["APIM named value", "Secret reference to Key Vault."],
-          ["APIM API and operation", "Exposes /jira-mcp/mcp."],
-          ["APIM policy", "Security and routing policy."],
-        ]}
-      />
-
-      <h2 id="containerapps">Container Apps deployment resources</h2>
-      <p>
-        <Code>infra\\containerapp.bicep</Code> creates:
-      </p>
-      <Table
-        headers={["Resource", "Purpose"]}
-        rows={[
-          ["User-assigned managed identity", "Pulls the ACR image and reads the Key Vault secret."],
-          ["Log Analytics workspace", "Container logs."],
-          ["Application Insights", "App telemetry."],
-          ["Key Vault", "Gateway secret."],
-          ["Container Apps environment", "Hosting environment."],
-          ["Container App", "Runs the MCP container."],
-          ["API Management", "Public gateway."],
-          ["APIM policy", "Security and routing."],
-        ]}
-      />
-
-      <h2 id="apim-policy">APIM policy & IP ranges</h2>
-      <p>
-        The policy in <Code>infra\\apim-policy.xml</Code> restricts origins via
-        CORS, includes placeholder IP allow-list ranges, rate limits and applies
-        a daily quota by IP, requires an Authorization header, injects{" "}
-        <Code>X-Gateway-Token</Code>, adds hardening headers, and deletes
-        sensitive headers on error paths.
-      </p>
-      <Callout variant="warning" title="Replace the placeholder IP ranges">
-        Before production, replace the placeholder range:
-        <CodeBlock
-          language="xml"
-          code={`<address-range from="REPLACE_START_IP" to="REPLACE_END_IP" />`}
-        />
-        with the Power Platform / Azure connector egress ranges for your region,
-        or manage equivalent restrictions through service tags or approved
-        networking controls.
-      </Callout>
-      <p>Find the service tag ranges for your region:</p>
-      <CodeBlock
-        language="powershell"
-        code={`az network list-service-tags --location eastus \`
-  --query "values[?name=='AzureConnectors.EastUS'].properties.addressPrefixes" -o json`}
-      />
-
-      <h2 id="choose">App Service vs Container Apps</h2>
       <Compare
-        betterLabel="App Service — choose when"
-        worseLabel="Container Apps — choose when"
+        betterLabel="Container Apps (recommended)"
+        worseLabel="App Service"
         rows={[
           {
-            better: "You want a familiar web-app hosting model",
-            worse: "You want container-native scaling and revisions",
+            better: "Scale-to-zero: no traffic, no cost",
+            worse: "Always-on by default (B1+ plan)",
           },
           {
-            better: "You value built-in health checks and simple ops",
-            worse: "You want HTTP-concurrency-based scaling",
+            better: "Container-native: ship a Dockerfile, no runtime config",
+            worse: "Requires selecting a Python runtime stack",
+          },
+          {
+            better: "Built-in Dapr, KEDA, and revision-based traffic splitting",
+            worse: "Deployment slots for traffic splitting (fewer options)",
+          },
+          {
+            better: "Ideal for event-driven, stateless workloads",
+            worse: "Better for long-running web apps with persistent connections",
           },
         ]}
       />
-      <Callout variant="production">
-        Both can be production-ready. Keep APIM in front either way — the gateway
-        is part of the security model, not an optional extra.
+      <Callout variant="tip" title="When to choose App Service">
+        If your organization already manages App Service Plans and wants to
+        consolidate billing, App Service is perfectly fine. The MCP server is
+        stateless either way.
       </Callout>
 
+      <h2 id="bicep">Bicep infrastructure-as-code</h2>
+      <p>
+        Bicep lets you declare the Azure resources your server needs in a single
+        file. The template below provisions a Container Apps Environment, a
+        Container App for the MCP server, an API Management instance, and a Key
+        Vault — all wired together with managed identity.
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="infra/main.bicep (skeleton)"
+        code={`// main.bicep — core resources for the MCP server
+param location string = resourceGroup().location
+param envName string
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: '\${envName}-logs'
+  location: location
+  properties: { retentionInDays: 30 }
+}
+
+resource containerEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
+  name: '\${envName}-env'
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+resource mcpApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: '\${envName}-mcp'
+  location: location
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    managedEnvironmentId: containerEnv.id
+    configuration: {
+      ingress: { external: true, targetPort: 8000, transport: 'http' }
+    }
+    template: {
+      containers: [
+        {
+          name: 'mcp-server'
+          image: 'ghcr.io/your-org/cowork-mcp:latest'
+          resources: { cpu: '0.5', memory: '1Gi' }
+        }
+      ]
+      scale: { minReplicas: 0, maxReplicas: 5 }
+    }
+  }
+}`}
+      />
+      <Callout variant="beginner" title="New to Bicep?">
+        Bicep is Azure&apos;s domain-specific language for infrastructure. It
+        compiles to ARM JSON but is far more readable. Run{" "}
+        <Code>az bicep build -f main.bicep</Code> to see the generated template.
+      </Callout>
+
+      <h2 id="apim">API Management in front</h2>
+      <p>
+        Never expose the raw Container App URL to the internet. Place Azure API
+        Management (APIM) in front. APIM gives you rate-limiting, request
+        validation, usage analytics, and a stable public endpoint that
+        doesn&apos;t change when you redeploy.
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="infra/apim.bicep (excerpt)"
+        code={`resource apim 'Microsoft.ApiManagement/service@2022-08-01' = {
+  name: '\${envName}-apim'
+  location: location
+  sku: { name: 'Consumption', capacity: 0 }
+  properties: { publisherEmail: 'admin@contoso.com', publisherName: 'Contoso' }
+}
+
+resource mcpApi 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
+  parent: apim
+  name: 'mcp-server'
+  properties: {
+    displayName: 'Cowork MCP Server'
+    path: 'mcp'
+    protocols: [ 'https' ]
+    serviceUrl: 'https://\${mcpApp.properties.configuration.ingress.fqdn}'
+  }
+}`}
+      />
+      <Table
+        headers={["APIM feature", "Why it matters"]}
+        rows={[
+          [<strong key="a">Rate limiting</strong>, "Prevents abuse; protects your backend from runaway agents"],
+          [<strong key="b">Request validation</strong>, "Rejects malformed payloads before they reach your server"],
+          [<strong key="c">Usage analytics</strong>, "Shows who calls which tools and how often"],
+          [<strong key="d">Stable URL</strong>, "The plug-in references this URL — it never changes on redeploy"],
+        ]}
+      />
+
+      <h2 id="key-vault">Secrets in Key Vault</h2>
+      <p>
+        OAuth client secrets, API keys, and database connection strings belong in
+        Azure Key Vault — not in environment variables or config files. The
+        Container App reads them at runtime through its system-assigned managed
+        identity.
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="infra/keyvault.bicep (excerpt)"
+        code={`resource kv 'Microsoft.KeyVault/vaults@2023-02-01' = {
+  name: '\${envName}-kv'
+  location: location
+  properties: {
+    sku: { family: 'A', name: 'standard' }
+    tenantId: subscription().tenantId
+    enableRbacAuthorization: true
+  }
+}
+
+// Grant the Container App read access
+resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: kv
+  name: guid(kv.id, mcpApp.id, 'Key Vault Secrets User')
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+    )
+    principalId: mcpApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}`}
+      />
+      <Callout variant="security" title="Never log secrets">
+        Even at debug level, never log token values or Key Vault secret
+        contents. Log the secret <em>name</em> and whether retrieval succeeded,
+        but not the value.
+      </Callout>
+
+      <h2 id="deploy">Deploy with azd</h2>
+      <p>
+        The Azure Developer CLI (<Code>azd</Code>) wraps provisioning and
+        deployment into a single command. Point it at your <Code>azure.yaml</Code>{" "}
+        and the Bicep templates, then run:
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="Terminal"
+        code={`# First time: initialize the project
+azd init
+
+# Provision infrastructure + deploy application
+azd up
+
+# Subsequent deploys (code only, no infra changes)
+azd deploy`}
+      />
+      <p>
+        If you prefer the Azure CLI directly:
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="Terminal (az CLI alternative)"
+        code={`# Deploy Bicep
+az deployment group create \\
+  --resource-group rg-cowork-mcp \\
+  --template-file infra/main.bicep \\
+  --parameters envName=prod
+
+# Update container image
+az containerapp update \\
+  --name prod-mcp \\
+  --resource-group rg-cowork-mcp \\
+  --image ghcr.io/your-org/cowork-mcp:v1.2.0`}
+      />
+
+      <h2 id="verify">Verify the deployment</h2>
+      <p>
+        After deploying, confirm the MCP server is healthy and reachable through
+        APIM. A simple health check and a tool listing call are enough:
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="Terminal"
+        code={`# Health check (expects 200)
+curl -s -o /dev/null -w "%{http_code}" \\
+  https://prod-apim.azure-api.net/mcp/health
+
+# List tools via MCP (JSON-RPC)
+curl -X POST https://prod-apim.azure-api.net/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'`}
+      />
+      <Mermaid
+        alt="Deployment verification flow: curl health check then tool listing"
+        chart={`flowchart LR
+    A[Developer] -->|curl /health| B[APIM]
+    B --> C[Container App]
+    C -->|200 OK| B
+    B -->|200| A
+    A -->|POST /mcp tools/list| B
+    B --> C
+    C -->|tool list JSON| B
+    B -->|response| A`}
+        caption="Verify deployment by hitting health and tools/list through APIM"
+      />
       <ConceptCheck
         question={
           <p>
-            Deployment succeeds, the app&apos;s own <Code>/healthz</Code> works,
-            but calls through APIM fail. The APIM policy still has{" "}
-            <Code>REPLACE_START_IP</Code>. What&apos;s happening?
+            Why place API Management in front of the Container App instead of
+            exposing it directly?
           </p>
         }
         answer={
           <p>
-            The placeholder IP allow-list is still active, so APIM rejects
-            traffic that doesn&apos;t fall in the (nonsensical) placeholder
-            range. Replace the range with your connector egress / service-tag
-            ranges, or temporarily remove the IP filter while you validate, then
-            restore a real restriction before production.
+            APIM provides rate limiting, request validation, analytics, and a
+            stable URL that survives redeployments. Without it, every redeploy
+            could change the endpoint, and there&apos;s no protection against
+            abuse or malformed requests.
           </p>
         }
+      />
+      <VideoCard
+        verified={false}
+        concept="Deploying containerized apps to Azure Container Apps with Bicep"
+        level="intermediate"
+        searchQuery="Azure Container Apps Bicep deployment tutorial (official Microsoft)"
+        why="A walkthrough of the Bicep + azd workflow makes the deploy step feel routine rather than daunting."
       />
     </ChapterShell>
   );

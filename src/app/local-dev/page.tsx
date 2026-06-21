@@ -1,160 +1,263 @@
 import { ChapterShell } from "@/components/ChapterShell";
 import { Callout } from "@/components/Callout";
 import { CodeBlock } from "@/components/CodeBlock";
-import { ConceptCheck } from "@/components/ConceptCheck";
-import { Table, Code, ExpectedOutput } from "@/components/content";
+import { Code, ExpectedOutput } from "@/components/content";
 import { Lab } from "@/components/Lab";
+import { WhatThisFileDoes } from "@/components/WhatThisFileDoes";
+import { VideoCard } from "@/components/VideoCard";
 
-export const metadata = { title: "Local Development Workflow" };
+export const metadata = { title: "Local Development" };
 
 export default function Page() {
   return (
     <ChapterShell
       slug="local-dev"
       eyebrow="Chapter 6 · Build"
-      title="Local Development Workflow"
-      intro="Your day-to-day loop: start the server, check health, run the smoke test, explore with MCP Inspector, and run tests and lint before you commit."
+      title="Local Development: Run, Inspect & Test"
+      intro="Get the MCP server running on your machine, inspect it with the MCP Inspector, fetch its tools into the Agents Toolkit, sideload the plug-in into Copilot, and run the test suite — all without deploying to Azure."
       learningGoals={[
-        "Start and validate the server locally",
-        "Interpret smoke-test results, including the deliberate 401",
-        "Use MCP Inspector to discover tools over Streamable HTTP",
-        "Run unit tests and the linter",
+        "Start the MCP server locally with scripts/run_local.py",
+        "Use the MCP Inspector to verify tool discovery at /mcp",
+        "Fetch tools into ai-plugin.json using the Agents Toolkit",
+        "Sideload the plug-in into Copilot for end-to-end testing",
+        "Run pytest to validate tools and payload trimming",
       ]}
       toc={[
-        { id: "start", label: "Start the server" },
-        { id: "health", label: "Validate health" },
-        { id: "smoke", label: "Run the smoke test" },
-        { id: "inspector", label: "Use MCP Inspector" },
-        { id: "tests", label: "Tests and lint" },
+        { id: "run-server", label: "Run the server" },
+        { id: "inspector", label: "MCP Inspector" },
+        { id: "fetch-action", label: "Fetch action from MCP" },
+        { id: "sideload", label: "Sideload into Copilot" },
+        { id: "tests", label: "Run tests" },
       ]}
       summary={
         <ul>
           <li>
-            <Code>run_local.ps1</Code> starts the server on port 8080.
+            <Code>scripts/run_local.py</Code> starts the server at{" "}
+            <Code>http://localhost:8000/mcp</Code>.
           </li>
           <li>
-            <Code>/healthz</Code> and <Code>/readyz</Code> confirm liveness and
-            readiness.
+            The MCP Inspector lets you call tools interactively and see raw
+            JSON-RPC responses.
           </li>
-          <li>The smoke test verifies the essentials without a real token.</li>
           <li>
-            <Code>pytest -q</Code> and <Code>ruff check .</Code> keep the code
-            healthy.
+            &ldquo;ATK: Fetch action from MCP&rdquo; pulls the live tool list
+            into <Code>ai-plugin.json</Code>.
+          </li>
+          <li>
+            Sideloading deploys the plug-in to your M365 tenant with a{" "}
+            <Code>dev</Code> suffix for testing.
           </li>
         </ul>
       }
       reviewItems={[
-        { id: "start", label: "I can start the server and read its startup line" },
-        { id: "health", label: "I validated /healthz and /readyz" },
-        { id: "smoke", label: "I ran the smoke test and understand the 401" },
-        { id: "inspector", label: "I connected MCP Inspector to /mcp" },
-        { id: "tests", label: "I ran pytest and ruff" },
+        { id: "run", label: "I can start the server locally" },
+        { id: "inspect", label: "I can verify tools with the MCP Inspector" },
+        { id: "fetch", label: "I can fetch tools into ai-plugin.json" },
+        { id: "sideload", label: "I know how to sideload and test in Copilot" },
       ]}
     >
-      <h2 id="start">Start the server</h2>
-      <CodeBlock language="powershell" code={`.\\scripts\\run_local.ps1`} />
-      <ExpectedOutput>{`Starting MCP server on http://localhost:8080/mcp ...`}</ExpectedOutput>
-
-      <h2 id="health">Validate health</h2>
-      <p>In another terminal:</p>
-      <CodeBlock
-        language="powershell"
-        code={`Invoke-RestMethod http://localhost:8080/healthz
-Invoke-RestMethod http://localhost:8080/readyz`}
+      <h2 id="run-server">Run the server locally</h2>
+      <p>
+        The quickest way to start the server is with the helper script{" "}
+        <Code>scripts/run_local.py</Code>. It loads your <Code>.env</Code> file,
+        sets <Code>PYTHONPATH</Code>, and launches the FastMCP server on port
+        8000. You can also run the module directly if you prefer.
+      </p>
+      <WhatThisFileDoes
+        path="scripts/run_local.py"
+        does={
+          <span>
+            Convenience launcher that loads <Code>.env</Code>, sets the Python
+            path, and starts the MCP server on localhost.
+          </span>
+        }
+        edit={<span>Port number or extra environment overrides.</span>}
+        dontEdit={
+          <span>
+            The <Code>sys.path</Code> manipulation — it ensures imports work
+            from the repo root.
+          </span>
+        }
       />
-      <p>Expected shapes:</p>
+      <CodeBlock
+        language="python"
+        filename="scripts/run_local.py"
+        code={`#!/usr/bin/env python3
+"""Run the MCP server locally for development."""
+import sys
+from pathlib import Path
+
+# Ensure repo root is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from src.cowork_mcp.server import mcp
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="127.0.0.1", port=8000)`}
+      />
+      <CodeBlock
+        language="bash"
+        filename="Terminal"
+        code={`# Option 1: helper script
+python scripts/run_local.py
+
+# Option 2: run as module
+PYTHONPATH=. python -m src.cowork_mcp.server`}
+      />
+      <ExpectedOutput>
+{`INFO:     Started server process
+INFO:     Uvicorn running on http://127.0.0.1:8000
+INFO:     MCP endpoint available at /mcp`}
+      </ExpectedOutput>
+      <Callout variant="tip" title="Create a .env first">
+        Copy <Code>.env.example</Code> to <Code>.env</Code> and fill in your
+        Salesforce (or other connector) credentials. The server will refuse to
+        start if required settings are missing.
+      </Callout>
+
+      <h2 id="inspector">MCP Inspector</h2>
+      <p>
+        The MCP Inspector is a browser-based tool that connects to any MCP
+        server and lets you discover tools, call them interactively, and see the
+        raw JSON-RPC responses. Point it at your local server to verify
+        everything works before involving the Agents Toolkit.
+      </p>
+      <CodeBlock
+        language="bash"
+        filename="Terminal"
+        code={`# Install and launch the MCP Inspector
+npx @anthropic-ai/mcp-inspector
+
+# In the Inspector UI, connect to:
+# URL: http://localhost:8000/mcp
+# Transport: Streamable HTTP`}
+      />
+      <p>
+        Once connected, the Inspector shows every tool your server exposes. Click
+        a tool to see its schema, fill in sample arguments, and execute it. The
+        response pane shows the trimmed JSON your server returned.
+      </p>
+      <Callout variant="beginner" title="No auth needed locally">
+        When running locally without a gateway, the server accepts anonymous
+        requests. The Inspector does not need a token. (In production, APIM or
+        your auth middleware handles token validation.)
+      </Callout>
+
+      <h2 id="fetch-action">Fetch action from MCP</h2>
+      <p>
+        With the server running, open VS Code with the Agents Toolkit (v6.3+).
+        Make sure <Code>.vscode/mcp.json</Code> points at{" "}
+        <Code>http://localhost:8000/mcp</Code>. Then run the command palette
+        action:
+      </p>
+      <CodeBlock
+        language="text"
+        filename="VS Code Command Palette"
+        code={`ATK: Fetch action from MCP`}
+      />
+      <p>
+        The Toolkit connects to your server, discovers all tools, and writes them
+        into <Code>ai-plugin.json</Code>. You can then select which tools to
+        expose and choose an authentication type. This is the bridge between your
+        Python server and the plug-in package.
+      </p>
       <CodeBlock
         language="json"
-        noCopy
-        code={`{ "status": "ok", "version": "1.0.0" }
-
-{ "status": "ready", "server": "microsoft-scout-jira-mcp" }`}
+        filename=".vscode/mcp.json"
+        code={`{
+  "inputs": [],
+  "servers": {
+    "cowork-mcp-local": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}`}
       />
 
-      <h2 id="smoke">Run the smoke test</h2>
-      <CodeBlock language="powershell" code={`python scripts\\smoke.py`} />
-      <Table
-        headers={["Step", "What it confirms"]}
-        rows={[
-          [<Code key="1">/healthz</Code>, "Returns 200 locally."],
-          [
-            <Code key="2">/mcp</Code>,
-            "Without a bearer, returns 401 (correctly rejects anonymous calls).",
-          ],
-          ["MCP initialize", "Returns 200 with a placeholder bearer."],
-          ["tools/list", "Checked only when a real token is supplied."],
-        ]}
-      />
-      <Callout variant="success" title="The 401 is expected">
-        A <Code>401</Code> on anonymous <Code>/mcp</Code> is a pass — it proves
-        the server refuses unauthenticated tool calls.
-      </Callout>
-
-      <h2 id="inspector">Use MCP Inspector</h2>
+      <h2 id="sideload">Sideload into Copilot</h2>
+      <p>
+        Sideloading deploys the plug-in to your Microsoft 365 developer tenant so
+        you can test it in Copilot Cowork without publishing to the store. The
+        agent appears with <Code>dev</Code> appended to its name.
+      </p>
       <CodeBlock
-        language="powershell"
-        code={`npx @modelcontextprotocol/inspector`}
+        language="text"
+        filename="VS Code Command Palette"
+        code={`ATK: Provision
+ATK: Sideload`}
       />
-      <Table
-        headers={["Setting", "Value"]}
-        rows={[
-          ["Transport", "Streamable HTTP"],
-          ["URL", <Code key="u">http://localhost:8080/mcp</Code>],
-        ]}
-      />
-      <Callout variant="note">
-        Tool calls that hit Jira need a real Atlassian OAuth access token. The
-        Inspector is still useful for verifying MCP transport and tool discovery
-        behavior even without one.
+      <p>
+        After sideloading, open{" "}
+        <Code>https://m365.cloud.microsoft/chat</Code> and look for your agent
+        in the Copilot experience. Try the conversation starters you defined in{" "}
+        <Code>declarativeAgent.json</Code>.
+      </p>
+      <Callout variant="warning" title="Developer tenant required">
+        Sideloading requires a Microsoft 365 developer tenant with custom app
+        upload enabled. See the{" "}
+        <a href="/environment/">Environment Setup</a> chapter for details.
       </Callout>
 
-      <h2 id="tests">Tests and lint</h2>
-      <CodeBlock
-        language="powershell"
-        code={`pytest -q
-ruff check .`}
-      />
-      <Callout variant="tip">
-        Run these before every commit. They&apos;re the same checks CI runs, so
-        catching issues locally saves a failed pipeline later (see{" "}
-        <a href="/cicd/">CI/CD</a>).
-      </Callout>
+      <h2 id="tests">Run tests</h2>
+      <p>
+        The test suite validates tools and trimming logic without needing a live
+        external system. Unit tests mock the connector client; integration tests
+        hit a local server instance.
+      </p>
+      <Lab
+        title="Run the test suite"
+        time="5 minutes"
+        goal={<span>Confirm all tools and trim logic pass locally.</span>}
+      >
+        <CodeBlock
+          language="bash"
+          filename="Terminal"
+          code={`# Install test dependencies
+pip install pytest pytest-asyncio httpx-mock
 
-      <Lab title="Your first full local loop" time="15 minutes" goal="Run the complete develop-and-verify cycle once, end to end.">
-        <ol className="list-decimal space-y-1 pl-5">
-          <li>Start the server with the helper script.</li>
-          <li>
-            Validate <Code>/healthz</Code> and <Code>/readyz</Code> in a second
-            terminal.
-          </li>
-          <li>
-            Run <Code>python scripts\\smoke.py</Code> and confirm the 401 step
-            passes.
-          </li>
-          <li>Open MCP Inspector and connect to the local endpoint.</li>
-          <li>
-            Stop the server, then run <Code>pytest -q</Code> and{" "}
-            <Code>ruff check .</Code>.
-          </li>
-        </ol>
+# Run all tests
+pytest tests/ -v
+
+# Run just the trim tests
+pytest tests/test_trim.py -v
+
+# Run tool tests (mocks external API)
+pytest tests/test_tools.py -v`}
+        />
+        <ExpectedOutput>
+{`tests/test_trim.py::test_small_payload_unchanged PASSED
+tests/test_trim.py::test_large_payload_trimmed PASSED
+tests/test_tools.py::test_salesforce_whoami PASSED
+tests/test_tools.py::test_salesforce_query PASSED
+====== 4 passed in 0.8s ======`}
+        </ExpectedOutput>
       </Lab>
+      <CodeBlock
+        language="python"
+        filename="tests/test_trim.py"
+        code={`"""Unit tests for payload trimming."""
+import pytest
+from src.cowork_mcp.trim import trim_payload
 
-      <ConceptCheck
-        question={
-          <p>
-            The smoke test passes locally, but you want to verify a real{" "}
-            <Code>tools/list</Code>. What do you need, and where does it come
-            from?
-          </p>
-        }
-        answer={
-          <p>
-            You need a real, short-lived Atlassian OAuth access token. It comes
-            from a Copilot Studio connection (the connector&apos;s OAuth flow) or
-            a manual OAuth exchange for testing. Supply it to the smoke script as
-            described in <a href="/testing/">Testing</a> — and never commit it.
-          </p>
-        }
+def test_small_payload_unchanged():
+    data = {"id": "001", "name": "Acme"}
+    assert trim_payload(data, max_bytes=1024) == data
+
+def test_large_payload_trimmed():
+    data = {"id": "001", "description": "x" * 10_000}
+    result = trim_payload(data, max_bytes=512)
+    assert "description" not in result`}
+      />
+      <VideoCard
+        verified={false}
+        concept="Local development workflow for Copilot Cowork MCP plug-ins"
+        level="beginner"
+        searchQuery="Microsoft Agents Toolkit MCP server local development sideload Copilot Cowork"
+        why="Watching someone go through the run-inspect-fetch-sideload loop makes the cycle concrete."
       />
     </ChapterShell>
   );

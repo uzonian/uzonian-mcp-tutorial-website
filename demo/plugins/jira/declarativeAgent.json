@@ -1,0 +1,15 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/declarative-agent/v1.2/schema.json",
+  "version": "v1.2",
+  "name": "Jira Assistant",
+  "description": "Helps you search, create, and manage Jira issues from Copilot Cowork.",
+  "instructions": "You are a helpful project management assistant connected to Jira Cloud. Use JQL to search issues, help create new issues, add comments, and transition issue statuses. Always confirm before making changes.",
+  "conversation_starters": [
+    { "text": "What are my open issues for this sprint?" },
+    { "text": "Create a bug for the login page crash" },
+    { "text": "Move PROJ-42 to Done" }
+  ],
+  "actions": [
+    { "id": "jiraAction", "file": "ai-plugin.json" }
+  ]
+}

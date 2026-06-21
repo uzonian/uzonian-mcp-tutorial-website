@@ -1,0 +1,26 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/plugin/v2.2/schema.json",
+  "schema_version": "v2.2",
+  "name_for_human": "Salesforce",
+  "description_for_human": "Connect to Salesforce to query records, create cases, and update opportunities.",
+  "namespace": "salesforce",
+  "runtimes": [
+    {
+      "type": "McpServer",
+      "spec": {
+        "url": "https://<your-host>/mcp"
+      },
+      "auth": {
+        "type": "OAuthPluginVault",
+        "reference_id": "salesforce-oauth"
+      }
+    }
+  ],
+  "functions": [
+    { "name": "salesforce_whoami", "description": "Return the current Salesforce user's identity." },
+    { "name": "salesforce_query", "description": "Execute a SOQL query and return trimmed records." },
+    { "name": "salesforce_get_record", "description": "Retrieve a single Salesforce record by sObject type and ID." },
+    { "name": "salesforce_create_case", "description": "Create a new Salesforce Case." },
+    { "name": "salesforce_update_opportunity", "description": "Update fields on an existing Opportunity." }
+  ]
+}

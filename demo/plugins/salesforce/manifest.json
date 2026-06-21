@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "manifestVersion": "devPreview",
+  "id": "{{SALESFORCE_APP_ID}}",
+  "version": "1.0.0",
+  "name": { "short": "Salesforce Cowork", "full": "Salesforce Connector for Copilot Cowork" },
+  "description": {
+    "short": "Query and manage Salesforce records from Copilot Cowork",
+    "full": "This plug-in connects Copilot Cowork to your Salesforce org via MCP, enabling SOQL queries, record management, case creation, and opportunity updates."
+  },
+  "developer": {
+    "name": "Contoso",
+    "websiteUrl": "https://contoso.com",
+    "privacyUrl": "https://contoso.com/privacy",
+    "termsOfUseUrl": "https://contoso.com/terms"
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#0078D4",
+  "copilotAgents": {
+    "declarativeAgents": [
+      {
+        "id": "salesforceAgent",
+        "file": "declarativeAgent.json"
+      }
+    ]
+  }
+}

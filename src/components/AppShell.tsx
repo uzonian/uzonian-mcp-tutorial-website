@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               MCP
             </span>
             <span className="hidden text-sm sm:inline">
-              Build an MCP Server for Copilot Studio
+              Building Plug-ins for Copilot Cowork
             </span>
           </Link>
 
@@ -120,11 +120,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <footer className="border-t border-slate-200 px-6 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
         <p>
-          A learning companion for building production-ready MCP servers with
-          Python, Azure, and Microsoft Copilot Studio.
+          A learning companion for building extensible Microsoft Copilot Cowork
+          plug-ins with Python, FastMCP, and Azure.
         </p>
         <p className="mt-1">
-          Generated from the MCP Server Implementation Textbook Guide · Content
+          Generated from the Copilot Cowork Plug-ins Textbook Guide · Content
           for educational use.
         </p>
       </footer>

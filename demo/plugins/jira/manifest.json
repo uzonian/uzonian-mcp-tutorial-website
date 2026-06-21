@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "manifestVersion": "devPreview",
+  "id": "{{JIRA_APP_ID}}",
+  "version": "1.0.0",
+  "name": { "short": "Jira Cowork", "full": "Jira Cloud Connector for Copilot Cowork" },
+  "description": {
+    "short": "Manage Jira issues from Copilot Cowork",
+    "full": "This plug-in connects Copilot Cowork to your Jira Cloud instance via MCP for issue search, creation, comments, and transitions."
+  },
+  "developer": {
+    "name": "Contoso",
+    "websiteUrl": "https://contoso.com",
+    "privacyUrl": "https://contoso.com/privacy",
+    "termsOfUseUrl": "https://contoso.com/terms"
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#0078D4",
+  "copilotAgents": {
+    "declarativeAgents": [
+      {
+        "id": "jiraAgent",
+        "file": "declarativeAgent.json"
+      }
+    ]
+  }
+}

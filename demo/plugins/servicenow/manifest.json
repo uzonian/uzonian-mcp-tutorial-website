@@ -1,0 +1,27 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "manifestVersion": "devPreview",
+  "id": "{{SERVICENOW_APP_ID}}",
+  "version": "1.0.0",
+  "name": { "short": "ServiceNow Cowork", "full": "ServiceNow Connector for Copilot Cowork" },
+  "description": {
+    "short": "Manage ServiceNow incidents and KB from Copilot Cowork",
+    "full": "This plug-in connects Copilot Cowork to your ServiceNow instance via MCP for incident management and knowledge base search."
+  },
+  "developer": {
+    "name": "Contoso",
+    "websiteUrl": "https://contoso.com",
+    "privacyUrl": "https://contoso.com/privacy",
+    "termsOfUseUrl": "https://contoso.com/terms"
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#0078D4",
+  "copilotAgents": {
+    "declarativeAgents": [
+      {
+        "id": "servicenowAgent",
+        "file": "declarativeAgent.json"
+      }
+    ]
+  }
+}

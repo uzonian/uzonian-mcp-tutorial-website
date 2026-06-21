@@ -1,0 +1,27 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/plugin/v2.2/schema.json",
+  "schema_version": "v2.2",
+  "name_for_human": "Jira Cloud",
+  "description_for_human": "Connect to Jira Cloud to search, create, and manage issues.",
+  "namespace": "jira",
+  "runtimes": [
+    {
+      "type": "McpServer",
+      "spec": {
+        "url": "https://<your-host>/mcp"
+      },
+      "auth": {
+        "type": "OAuthPluginVault",
+        "reference_id": "jira-oauth"
+      }
+    }
+  ],
+  "functions": [
+    { "name": "jira_whoami", "description": "Return the current Jira user's identity." },
+    { "name": "jira_search", "description": "Search for issues using JQL." },
+    { "name": "jira_get_issue", "description": "Retrieve a single Jira issue by key." },
+    { "name": "jira_create_issue", "description": "Create a new Jira issue." },
+    { "name": "jira_add_comment", "description": "Add a comment to a Jira issue." },
+    { "name": "jira_transition_issue", "description": "Transition a Jira issue to a new status." }
+  ]
+}

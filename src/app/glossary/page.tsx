@@ -5,21 +5,21 @@ import { glossary } from "@/lib/glossary";
 export const metadata = { title: "Glossary & Principles" };
 
 const PRINCIPLES = [
-  "Start native MCP-first.",
-  "Keep /mcp as the primary agent endpoint.",
-  "Use delegated identity whenever user data is involved.",
-  "Do not store user tokens in the MCP server.",
-  "Put APIM in front for production.",
-  "Use Key Vault for gateway secrets.",
-  "Validate the gateway secret in the app, not only in APIM.",
-  "Return compact, typed results.",
-  "Cap search sizes.",
+  "Start MCP-first — make /mcp the primary agent endpoint.",
+  "Use delegated per-user identity whenever user data is involved.",
+  "Never store user tokens in the MCP server; use request-scoped context.",
+  "Put APIM in front for production; validate the gateway secret in the app.",
+  "Store secrets in Key Vault, accessed via managed identity.",
+  "Design tools that do one clear thing and return compact, typed results.",
+  "Cap search sizes and enforce a byte budget before serialising responses.",
+  "Follow the four-part pattern: connection, tools, skill, auth.",
   "Test auth failures as carefully as success paths.",
-  "Treat the connector schema as production code.",
-  "Prefer clear, narrow tools over broad API passthrough tools.",
-  "Make local development easy, but do not weaken production security.",
+  "Treat the plug-in manifest as production code — version and validate it.",
   "Document every required portal value, redirect URI, scope, and environment variable.",
-  "Validate the whole path: Copilot Studio → connector → APIM → MCP server → upstream and back.",
+  "Validate the whole path: Copilot → plug-in → APIM → MCP server → upstream and back.",
+  "Make local development easy, but never weaken production security for convenience.",
+  "Prefer clear, narrow tools over broad API passthrough tools.",
+  "Ship a SKILL.md with every connector so the agent knows how to orchestrate the tools.",
 ];
 
 function anchor(term: string) {
@@ -32,10 +32,10 @@ export default function Page() {
       slug="glossary"
       eyebrow="Reference"
       title="Glossary & Final Principles"
-      intro="Plain-English definitions of every key term, followed by the fifteen principles to keep in mind whenever you build an MCP server from this scaffold."
+      intro="Plain-English definitions of every key term used in this guide, followed by the fifteen principles for building extensible Copilot Cowork plug-ins."
       learningGoals={[
         "Look up any term used in the guide",
-        "Internalise the final implementation principles",
+        "Internalise the final implementation principles for extensible plug-ins",
       ]}
       toc={[
         { id: "terms", label: "Glossary terms" },
@@ -71,9 +71,9 @@ export default function Page() {
         ))}
       </dl>
 
-      <h2 id="principles">Final implementation principles</h2>
+      <h2 id="principles">Final principles for extensible Cowork plug-ins</h2>
       <Callout variant="why" title="Use these as a pre-ship review">
-        Read down this list before any production deploy. If you can&apos;t
+        Read down this list before any production deploy. If you cannot
         confidently say &ldquo;yes&rdquo; to each, revisit the relevant chapter.
       </Callout>
       <ol className="mt-4 space-y-2">

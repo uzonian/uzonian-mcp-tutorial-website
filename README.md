@@ -1,27 +1,29 @@
-# MCP Server Implementation — Tutorial Website
+# Building Plug-ins for Copilot Cowork — Tutorial Website
 
 [![Azure Static Web Apps CI/CD](https://github.com/uzonian/uzonian-mcp-tutorial-website/actions/workflows/azure-static-web-apps.yml/badge.svg)](https://github.com/uzonian/uzonian-mcp-tutorial-website/actions/workflows/azure-static-web-apps.yml)
 
 🌐 **Live site:** https://mcp.uzoniandev.com
 
-A polished, beginner-friendly documentation website that teaches how to design,
-build, secure, test, deploy, and operate a **Model Context Protocol (MCP)
-server** in Python and connect it to **Microsoft Copilot Studio** through Azure
-API Management.
+A polished, beginner-friendly documentation website that teaches how to build
+**plug-ins for Microsoft Copilot Cowork** — focusing on extensibility: the
+components of an **MCP connection**, the connection types Cowork supports, and
+how to set them up. The reference MCP server is built in Python with FastMCP and
+hosted on Azure.
 
-The content is transformed from `MCP_Server_Implementation_Textbook_Guide.md`
+The content is transformed from `Copilot_Cowork_Plugins_Textbook_Guide.md`
 into a structured, multi-chapter learning product with diagrams, code blocks,
 labs, concept checks, an interactive production checklist, a glossary, and local
 search.
 
-> The reference example exposes **Jira Cloud**, but the architecture and
-> patterns apply to any enterprise system you want to expose to an AI agent.
+> The guide ships three worked example plug-ins — **Salesforce**, **ServiceNow**,
+> and **Jira Cloud** — but the architecture and patterns apply to any enterprise
+> system you want to reach from a Copilot Cowork plug-in.
 
 ---
 
 ## ✨ Features
 
-- **19 chapters** across six stages (Get Started → Understand → Build →
+- **18 chapters** across six stages (Get Started → Understand → Build →
   Integrate & Ship → Operate → Reference)
 - **Learning scaffolding** on every chapter: learning goals, plain-English
   primers, beginner/security/why-this-matters callouts, concept checks with
@@ -211,12 +213,12 @@ MCP Tutorial Website
 This site intentionally keeps the security and architecture posture of the
 source guide:
 
-- Native MCP at `/mcp` is the **primary** design; REST is only a fallback.
-- **Delegated OAuth 2.0 3LO** — actions run as the signed-in user.
+- Remote **streamable HTTP** MCP servers are the supported production connection.
+- **OAuth 2.1 with static registration** — actions run as the signed-in user.
 - **No service accounts, no PATs**, no stored user tokens.
-- **APIM** gateway + **Key Vault**-backed gateway secret (verified by the app).
+- **APIM** gateway + **Key Vault** for the MCP server's secrets.
 - **Payload trimming** with a byte budget to avoid oversized agent responses.
-- Copilot Studio connector concepts (`x-ms-agentic-protocol`) are central.
+- The Microsoft 365 Agents Toolkit flow (declarative agent + MCP action) is central.
 
 ---
 
@@ -238,12 +240,12 @@ source guide:
   confirmed.
 - Search is a lightweight static index (titles, summaries, keywords, and curated
   section anchors), not a full-text index of every paragraph.
-- The site documents the reference implementation; it does not contain or run the
-  Python MCP server itself.
+- The website documents the reference implementation; the runnable Python MCP
+  server and the three plug-in packages live in the `demo/` folder.
 
 ---
 
 ## 📄 Source
 
-Generated from `MCP_Server_Implementation_Textbook_Guide.md`. Content is for
+Generated from `Copilot_Cowork_Plugins_Textbook_Guide.md`. Content is for
 educational use.

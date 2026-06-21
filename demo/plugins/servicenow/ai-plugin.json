@@ -1,0 +1,27 @@
+{
+  "$schema": "https://aka.ms/json-schemas/copilot/plugin/v2.2/schema.json",
+  "schema_version": "v2.2",
+  "name_for_human": "ServiceNow",
+  "description_for_human": "Connect to ServiceNow for incident management and knowledge base search.",
+  "namespace": "servicenow",
+  "runtimes": [
+    {
+      "type": "McpServer",
+      "spec": {
+        "url": "https://<your-host>/mcp"
+      },
+      "auth": {
+        "type": "OAuthPluginVault",
+        "reference_id": "servicenow-oauth"
+      }
+    }
+  ],
+  "functions": [
+    { "name": "servicenow_whoami", "description": "Return the current ServiceNow user profile." },
+    { "name": "servicenow_search_incidents", "description": "Search incidents using an encoded query string." },
+    { "name": "servicenow_get_incident", "description": "Retrieve a single incident by sys_id." },
+    { "name": "servicenow_create_incident", "description": "Create a new incident." },
+    { "name": "servicenow_update_incident", "description": "Update an incident by sys_id." },
+    { "name": "servicenow_search_kb", "description": "Search the knowledge base for articles." }
+  ]
+}
