@@ -8,4 +8,7 @@ services:
     project: .
     language: js
     host: staticwebapp
+    # Standalone (root) deploy. To deploy as a hub module instead, run
+    # `npm run build:module` and publish the generated `dist/` folder behind the
+    # hub's Front Door route for `<NEXT_PUBLIC_BASE_PATH>/*`. See README.
     dist: out

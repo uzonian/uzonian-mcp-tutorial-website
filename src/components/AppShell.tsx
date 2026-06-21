@@ -6,6 +6,8 @@ import { SidebarNav } from "./SidebarNav";
 import { QuickSearch } from "./QuickSearch";
 import { ThemeToggle } from "./ThemeToggle";
 import { ReadingProgress } from "./ReadingProgress";
+import { HubBar } from "./HubBar";
+import { currentModule } from "@/lib/module";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -13,6 +15,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
       <ReadingProgress />
+
+      {/* Hub-level navigation: back to the central site + module switcher */}
+      <HubBar />
 
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
@@ -49,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               MCP
             </span>
             <span className="hidden text-sm sm:inline">
-              Build an MCP Server for Copilot Studio
+              {currentModule.title}
             </span>
           </Link>
 
