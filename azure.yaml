@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: mcp-tutorial-website
+metadata:
+  template: azd-init
+
+services:
+  web:
+    project: .
+    language: js
+    host: staticwebapp
+    dist: out
