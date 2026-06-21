@@ -1,5 +1,9 @@
 # MCP Server Implementation — Tutorial Website
 
+[![Azure Static Web Apps CI/CD](https://github.com/uzonian/uzonian-mcp-tutorial-website/actions/workflows/azure-static-web-apps.yml/badge.svg)](https://github.com/uzonian/uzonian-mcp-tutorial-website/actions/workflows/azure-static-web-apps.yml)
+
+🌐 **Live site:** https://thankful-moss-0e745710f.7.azurestaticapps.net
+
 A polished, beginner-friendly documentation website that teaches how to design,
 build, secure, test, deploy, and operate a **Model Context Protocol (MCP)
 server** in Python and connect it to **Microsoft Copilot Studio** through Azure
