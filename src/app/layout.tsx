@@ -5,20 +5,24 @@ import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: {
-    default: "Build an MCP Server for Copilot Studio",
-    template: "%s · MCP Server Guide",
+    default: "Building Plug-ins for Copilot Cowork",
+    template: "%s · Copilot Cowork Plug-ins Guide",
   },
   description:
-    "A beginner-friendly, production-grade learning path for building Model Context Protocol (MCP) servers with Python, VS Code on Windows, Azure, APIM, Key Vault, Atlassian OAuth, and Microsoft Copilot Studio.",
-  applicationName: "MCP Server Implementation Guide",
+    "A beginner-friendly, extensibility-first learning path for building Microsoft Copilot Cowork plug-ins: the components of an MCP connection, the connection types Cowork supports, and worked example plug-ins for Salesforce, ServiceNow, and Jira Cloud — built with Python, FastMCP, Azure, and the Microsoft 365 Agents Toolkit.",
+  applicationName: "Copilot Cowork Plug-ins Guide",
   keywords: [
+    "Copilot Cowork",
+    "Microsoft 365 Copilot",
+    "plug-in",
     "MCP",
     "Model Context Protocol",
-    "Copilot Studio",
+    "declarative agent",
+    "Agents Toolkit",
+    "Salesforce",
+    "ServiceNow",
+    "Jira Cloud",
     "Azure",
-    "APIM",
-    "Key Vault",
-    "Atlassian OAuth",
     "FastMCP",
     "Python",
   ],

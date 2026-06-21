@@ -11,172 +11,160 @@ export default function Page() {
   return (
     <ChapterShell
       slug="before-you-begin"
-      eyebrow="Get Started"
-      title="Before You Begin"
-      intro="A jargon-free primer. By the end of this short chapter, the words you'll meet later — API, token, OAuth, JSON, terminal — won't feel like a foreign language."
+      eyebrow="Orientation"
+      title="Before You Begin: A Jargon Primer"
+      intro="Get comfortable with the key terms — Copilot Cowork, plug-ins, skills, connectors, and MCP — so nothing in the chapters ahead feels unfamiliar."
       learningGoals={[
-        "Explain what an API, a token, and OAuth are in plain English",
-        "Recognise JSON and know why it's everywhere in this guide",
-        "Feel comfortable opening a terminal and running a command",
-        "Understand what an MCP server is, at a high level",
+        "Explain what Copilot Cowork is and how it differs from chat-only Copilot",
+        "Distinguish a plug-in from a skill from a connector",
+        "Summarize what MCP does in one sentence",
+        "Identify the software and access you need to follow along",
       ]}
       toc={[
-        { id: "no-expert", label: "You don't need to be an expert" },
-        { id: "words", label: "Words you'll meet" },
-        { id: "mcp-plain", label: "MCP in plain English" },
-        { id: "mindset", label: "The security mindset" },
+        { id: "what-is-cowork", label: "What is Copilot Cowork?" },
+        { id: "plugin-vs-skill", label: "Plug-in vs skill vs connector" },
+        { id: "mcp-in-one-minute", label: "MCP in one minute" },
+        { id: "jargon", label: "Jargon table" },
+        { id: "what-you-need", label: "What you need" },
       ]}
       summary={
         <ul>
-          <li>An API is how programs talk; a token is a temporary pass.</li>
-          <li>OAuth lets you grant access without sharing your password.</li>
-          <li>JSON is the text format used to send structured data.</li>
           <li>
-            An MCP server is a safe, standard way to give an AI agent tools.
+            <strong>Copilot Cowork</strong> is the agentic layer of Microsoft 365
+            Copilot that executes multi-step tasks.
+          </li>
+          <li>
+            A <strong>plug-in</strong> bundles a declarative agent with{" "}
+            <strong>skills</strong> (know-how) and <strong>connectors</strong>{" "}
+            (reach via MCP).
+          </li>
+          <li>
+            <strong>MCP</strong> lets Cowork discover and call your tools
+            dynamically over one HTTPS endpoint.
+          </li>
+          <li>
+            You need VS Code with the M365 Agents Toolkit, Python 3.11+, Azure
+            CLI, and a tenant with Copilot access.
           </li>
         </ul>
       }
       reviewItems={[
-        { id: "api", label: "I can explain an API in one sentence" },
-        { id: "token", label: "I understand what a token is and why it expires" },
-        { id: "oauth", label: "I know what 'delegated access' means" },
-        { id: "json", label: "I can recognise JSON" },
-        { id: "terminal", label: "I'm comfortable running a terminal command" },
+        { id: "cowork", label: "I can explain what Copilot Cowork does" },
+        { id: "plugin", label: "I know the difference between a plug-in, a skill, and a connector" },
+        { id: "mcp", label: "I can summarize MCP in one sentence" },
+        { id: "ready", label: "I have the required software and tenant access" },
       ]}
     >
-      <h2 id="no-expert">You don&apos;t need to be an expert</h2>
+      <h2 id="what-is-cowork">What is Copilot Cowork?</h2>
       <p>
-        This guide assumes you are new to Python and new to agentic tools. You
-        do <strong>not</strong> need to memorise anything here — treat this page
-        as a friendly glossary you can come back to whenever a term feels fuzzy.
+        Microsoft 365 Copilot has two faces. The one you already know answers
+        questions and summarizes documents. <strong>Copilot Cowork</strong> is the
+        other face — it <em>does the work</em>. Give it a multi-step task
+        (&ldquo;triage these incidents, find related KB articles, and set
+        priorities&rdquo;) and it executes the whole sequence, reaching into
+        external systems on your behalf.
       </p>
-
-      <Callout variant="beginner" title="Read this whole page first">
-        Five minutes here will save you confusion in every later chapter. Each
-        idea below is explained again, in context, where you actually use it.
+      <Callout variant="beginner" title="Think of it this way">
+        Chat Copilot is a helpful advisor. Cowork is a capable colleague who
+        actually carries out the task end to end.
       </Callout>
 
-      <h2 id="words">Words you&apos;ll meet</h2>
-
-      <CardGrid>
-        <Card title="API" icon="🔌">
-          An <strong>Application Programming Interface</strong> is how one
-          program asks another program to do something — like a waiter taking
-          your order to the kitchen. Jira has an API; your MCP server calls it.
+      <h2 id="plugin-vs-skill">Plug-in vs skill vs connector</h2>
+      <p>
+        These three words come up constantly. They sit at different levels of the
+        extensibility stack, and once you see how they nest, everything else in
+        this guide makes sense.
+      </p>
+      <CardGrid cols={3}>
+        <Card title="Plug-in" icon="📦">
+          The deployable package. It uses the Microsoft 365 app model (same as
+          Teams apps) and contains one <strong>declarative agent</strong> plus its
+          skills and connectors.
         </Card>
-        <Card title="Token" icon="🎟️">
-          A <strong>token</strong> is a temporary pass that proves who you are.
-          Like a hotel key card, it expires and can be revoked. Your server
-          forwards the user&apos;s token to Jira instead of storing a password.
+        <Card title="Skill" icon="📋">
+          A markdown recipe (<Code>SKILL.md</Code>) that describes <em>how</em>{" "}
+          to accomplish a task — the know-how. No new API access required.
         </Card>
-        <Card title="OAuth" icon="🔑">
-          <strong>OAuth</strong> is a way to grant an app access to your data{" "}
-          <em>without giving it your password</em>. You sign in once and approve
-          what the app can do. That approval produces a token.
-        </Card>
-        <Card title="JSON" icon="📦">
-          <strong>JSON</strong> is a simple text format for structured data —
-          lists, labels, and values. APIs send and receive JSON. You&apos;ll see
-          a lot of it, and it&apos;s easy to read once it clicks.
-        </Card>
-        <Card title="Endpoint" icon="📍">
-          An <strong>endpoint</strong> is a single URL an API listens on. This
-          server&apos;s main endpoint is <Code>/mcp</Code>.
-        </Card>
-        <Card title="Terminal" icon="⌨️">
-          The <strong>terminal</strong> (here, PowerShell) is a text window where
-          you type commands instead of clicking buttons. VS Code has one built
-          in.
+        <Card title="Connector / action" icon="🔌">
+          The live connection that gives the agent <em>reach</em> into an
+          external system. The modern approach: an <strong>MCP server
+          action</strong>.
         </Card>
       </CardGrid>
+      <Callout variant="tip" title="Skills + connectors = powerful agents">
+        A skill describes the workflow; a connector supplies the live data. The
+        best plug-ins pair both.
+      </Callout>
 
-      <p>Here is a tiny piece of JSON, so it&apos;s not a surprise later:</p>
-
-      <Table
-        headers={["You'll see…", "It means…"]}
-        rows={[
-          [
-            <Code key="1">{`{ "status": "ok" }`}</Code>,
-            "An object with one label 'status' whose value is the text 'ok'.",
-          ],
-          [
-            <Code key="2">{`"key": "PROJ-123"`}</Code>,
-            "A label 'key' with the value 'PROJ-123'.",
-          ],
-          [
-            <Code key="3">{`[ "a", "b" ]`}</Code>,
-            "A list containing two text items.",
-          ],
-        ]}
-      />
-
-      <h2 id="mcp-plain">MCP in plain English</h2>
+      <h2 id="mcp-in-one-minute">MCP in one minute</h2>
       <p>
-        <strong>MCP (Model Context Protocol)</strong> is a standard way to give
-        an AI agent a set of <em>tools</em>. Instead of teaching the AI to poke
-        at a raw API, you publish a tidy menu of actions — &ldquo;search
-        issues&rdquo;, &ldquo;create issue&rdquo; — and the agent picks the right
-        one.
+        <strong>Model Context Protocol (MCP)</strong> is an open standard that
+        lets an agent discover and call tools exposed by a remote server. Instead
+        of hard-coding one connector per API endpoint, your plug-in points at a
+        single MCP server URL. Cowork asks the server what tools it has, what
+        arguments they accept, and then calls them — all over one HTTPS endpoint
+        using <Code>streamable HTTP</Code> transport.
       </p>
-      <p>Think of it like this:</p>
-      <Table
-        headers={["Everyday analogy", "MCP equivalent"]}
-        rows={[
-          ["A restaurant menu", "The list of tools the server exposes"],
-          ["Ordering a dish", "The agent calling a tool"],
-          [
-            "The kitchen",
-            "Your MCP server doing the real work (calling Jira)",
-          ],
-          [
-            "The waiter checking your ID",
-            "Delegated token: actions run as the signed-in user",
-          ],
-        ]}
-      />
-
       <ConceptCheck
         question={
           <p>
-            Why is forwarding the <em>user&apos;s</em> token to Jira safer than
-            using one shared account for everyone?
+            Why is dynamic tool discovery better than hand-coding one connector
+            operation per API call?
           </p>
         }
         answer={
           <p>
-            Because Jira already knows what each user is allowed to see. If the
-            server acts as the signed-in user, Jira automatically enforces that
-            user&apos;s permissions. A single shared account would either
-            over-expose data (it can see everything) or force you to rebuild
-            Jira&apos;s permission rules yourself.
+            Because you add new capabilities on the server side and Cowork picks
+            them up automatically — no plug-in rebuild needed for each new tool.
           </p>
         }
       />
 
-      <h2 id="mindset">The security mindset</h2>
+      <h2 id="jargon">Jargon table</h2>
       <p>
-        One idea will repeat in every chapter:{" "}
-        <strong>
-          never hold more power than you need, and never store secrets you
-          don&apos;t have to.
-        </strong>{" "}
-        That&apos;s why this design uses short-lived per-user tokens, keeps
-        secrets in Azure Key Vault, and puts a gateway in front of the server.
+        Bookmark this table. These terms reappear in every chapter.
       </p>
+      <Table
+        headers={["Term", "One-line definition"]}
+        rows={[
+          [<strong key="a">Copilot Cowork</strong>, "The agentic layer of M365 Copilot that executes multi-step tasks."],
+          [<strong key="b">Plug-in</strong>, "A deployable package (M365 app model) containing the agent, skills, and connectors."],
+          [<strong key="c">Declarative agent</strong>, "The agent definition inside a plug-in: instructions, conversation starters, and actions."],
+          [<strong key="d">Skill</strong>, "A markdown recipe that describes a repeatable workflow (the know-how)."],
+          [<strong key="e">Connector / action</strong>, "The live link to an external system — an MCP server action in modern plug-ins."],
+          [<strong key="f">MCP</strong>, "Model Context Protocol — the standard for agent-to-tool communication."],
+          [<strong key="g">Tool</strong>, "A callable function on an MCP server (name + typed args + description)."],
+          [<strong key="h">Streamable HTTP</strong>, "The HTTPS transport Cowork uses to talk to an MCP server (/mcp endpoint)."],
+          [<strong key="i">FastMCP</strong>, "The Python library (MCP SDK) used to build MCP servers in this guide."],
+          [<strong key="j">M365 Agents Toolkit</strong>, "The VS Code extension (v6.3+) that scaffolds and manages plug-in projects."],
+        ]}
+      />
 
-      <Callout variant="why">
-        Beginners often reach for the &ldquo;easy&rdquo; option: one API key
-        that does everything. This guide deliberately avoids that, because easy
-        shortcuts become the security incident later. Learning the safe pattern
-        from day one is the whole point.
+      <h2 id="what-you-need">What you need</h2>
+      <p>
+        Before diving into the quickstart, make sure you have access to the
+        following. The <a href="/environment/">Environment Setup</a> chapter walks
+        through installation step by step.
+      </p>
+      <CardGrid cols={2}>
+        <Card title="Software" icon="💻">
+          VS Code, M365 Agents Toolkit v6.3+, Python 3.11+, Azure CLI, Node.js
+          LTS.
+        </Card>
+        <Card title="Tenant access" icon="🔑">
+          A Microsoft 365 tenant with custom app upload enabled and a Copilot
+          license (or developer tenant with Copilot access).
+        </Card>
+      </CardGrid>
+      <Callout variant="note" title="Don&apos;t have a tenant?">
+        You can request a free Microsoft 365 developer tenant at{" "}
+        <Code>developer.microsoft.com/microsoft-365/dev-program</Code>. Copilot
+        access may require a separate license or trial.
       </Callout>
-
       <VideoCard
         verified={false}
-        concept="What the Model Context Protocol is and why it exists"
-        level="beginner"
-        searchQuery='"Model Context Protocol" introduction (modelcontextprotocol.io OR Microsoft OR VS Code)'
-        why="A short conceptual overview from an official MCP, Microsoft, or VS Code source helps the protocol click before you read code."
+        concept="Introduction to Microsoft Copilot Cowork extensibility and plug-ins"
+        searchQuery='"Copilot Cowork" plug-in extensibility overview (Microsoft Build OR Ignite)'
       />
     </ChapterShell>
   );

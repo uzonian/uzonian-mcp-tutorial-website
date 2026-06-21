@@ -1,187 +1,168 @@
 import { ChapterShell } from "@/components/ChapterShell";
 import { Callout } from "@/components/Callout";
+import { CodeBlock } from "@/components/CodeBlock";
 import { Mermaid } from "@/components/Mermaid";
 import { ConceptCheck } from "@/components/ConceptCheck";
 import { Table, Code } from "@/components/content";
+import { CardGrid, Card } from "@/components/Card";
 
-export const metadata = { title: "Architecture & Request Lifecycle" };
-
-const HIGH_LEVEL = `flowchart LR
-    User([User]) --> Agent[Copilot Studio agent]
-    Agent --> Connector[Power Platform connector]
-    Connector --> APIM[Azure API Management]
-    APIM --> App[Python FastMCP server]
-    App --> Jira[(Jira Cloud REST API)]
-    Connector -. OAuth 2.0 3LO .-> Atlassian[Atlassian OAuth]
-    APIM -. gateway secret .-> KeyVault[(Azure Key Vault)]
-    App -. logs/traces .-> AppInsights[(Application Insights)]`;
-
-const LIFECYCLE = `sequenceDiagram
-    autonumber
-    participant U as User
-    participant CS as Copilot Studio
-    participant PP as Power Platform connector
-    participant APIM as Azure API Management
-    participant MCP as FastMCP server
-    participant JR as Jira Cloud
-    U->>CS: Ask for Jira information
-    CS->>PP: Select MCP connector
-    PP->>PP: Refresh or obtain Atlassian user token
-    PP->>APIM: POST /jira-mcp/mcp (Authorization: Bearer)
-    APIM->>APIM: Check CORS, IP, rate limits, Authorization
-    APIM->>MCP: Forward /mcp and inject X-Gateway-Token
-    MCP->>MCP: Verify origin and gateway token
-    MCP->>MCP: Bind bearer token to request ContextVar
-    MCP->>JR: Resolve accessible Jira site
-    MCP->>JR: Call Jira REST API as signed-in user
-    JR-->>MCP: Return Jira response
-    MCP->>MCP: Trim fields and enforce byte budget
-    MCP-->>APIM: Return MCP tool result
-    APIM-->>PP: Return response
-    PP-->>CS: Tool result
-    CS-->>U: Natural-language answer`;
-
-const IDENTITY = `flowchart TD
-    U[User] --> PP[Power Platform connector]
-    PP -->|OAuth 2.0 authorization code flow| ATL[Atlassian OAuth]
-    ATL -->|access token for user| PP
-    PP -->|Authorization: Bearer user token| MCP[MCP server]
-    MCP -->|same bearer token| JIRA[Jira Cloud]
-    JIRA -->|enforces user permissions| MCP`;
+export const metadata = { title: "Architecture" };
 
 export default function Page() {
   return (
     <ChapterShell
       slug="architecture"
       eyebrow="Chapter 2 · Understand"
-      title="Architecture & Request Lifecycle"
-      intro="Follow a single question from a user's lips all the way to Jira and back. Once you can trace this path, every later chapter is just a close-up of one box in the diagram."
+      title="Architecture: How the Pieces Fit Together"
+      intro="A bird&rsquo;s-eye view of the runtime architecture — from the user&rsquo;s prompt in Copilot Cowork all the way to the enterprise system, through the MCP server, Azure API Management, and the OAuth token exchange."
       learningGoals={[
-        "Name each component in the end-to-end architecture",
-        "Trace a request through the connector, APIM, the server, and Jira",
-        "Explain where the user's token is obtained, forwarded, and discarded",
-        "Identify which component enforces which protection",
+        "Draw the high-level architecture from user to enterprise system",
+        "Walk through a single request lifecycle step by step",
+        "Explain how delegated identity flows through the stack",
+        "Identify how Salesforce, ServiceNow, and Jira each fit the pattern",
       ]}
       toc={[
-        { id: "high-level", label: "High-level architecture" },
+        { id: "high-level", label: "High-level diagram" },
         { id: "lifecycle", label: "Request lifecycle" },
-        { id: "identity", label: "Where identity flows" },
-        { id: "who-does-what", label: "Who does what" },
+        { id: "identity", label: "Identity & delegated tokens" },
+        { id: "three-systems", label: "The three example systems" },
       ]}
       summary={
         <ul>
           <li>
-            User → Copilot Studio → connector → APIM → FastMCP server → Jira, and
-            back.
+            A user prompt flows from Copilot Cowork → plug-in action → APIM
+            gateway → MCP server on Azure → enterprise system.
           </li>
           <li>
-            The connector handles OAuth and holds tokens; the server only{" "}
-            <em>borrows</em> the token for the duration of one request.
+            Each request carries a <strong>delegated token</strong> scoped to the
+            signed-in user — never a shared service account.
           </li>
           <li>
-            APIM guards the edge; the app re-checks the gateway secret; Jira
-            enforces user permissions.
+            Secrets live in Azure Key Vault; the MCP server never persists tokens.
+          </li>
+          <li>
+            Salesforce, ServiceNow, and Jira each plug into the same pattern with
+            their own OAuth flows.
           </li>
         </ul>
       }
       reviewItems={[
-        { id: "components", label: "I can name every component in order" },
-        { id: "token-life", label: "I know where the token is obtained and discarded" },
-        { id: "protections", label: "I can map each protection to a component" },
+        { id: "diagram", label: "I can draw the architecture from memory" },
+        { id: "lifecycle", label: "I can trace a request through the stack" },
+        { id: "identity", label: "I understand delegated vs service-account auth" },
+        { id: "systems", label: "I see how each example system fits the pattern" },
       ]}
     >
-      <h2 id="high-level">High-level architecture</h2>
+      <h2 id="high-level">High-level diagram</h2>
       <p>
-        Six moving parts, plus three supporting services (OAuth, Key Vault,
-        Application Insights). Solid arrows are the request path; dotted arrows
-        are supporting relationships.
+        The architecture is a straight pipeline. The user talks to Copilot Cowork;
+        Cowork invokes the plug-in&apos;s MCP server action; the call flows through
+        Azure API Management (rate limiting, policy enforcement) to your MCP server
+        running on Azure Container Apps; the server calls the enterprise system
+        with the user&apos;s delegated OAuth token; secrets stay in Key Vault.
       </p>
       <Mermaid
-        chart={HIGH_LEVEL}
-        alt="The user talks to a Copilot Studio agent, which uses a Power Platform connector, which calls Azure API Management, which forwards to the Python FastMCP server, which calls the Jira Cloud REST API. The connector does OAuth 2.0 3LO with Atlassian; API Management reads a gateway secret from Key Vault; the server sends logs and traces to Application Insights."
-        caption="Solid = request path. Dotted = supporting services."
+        alt="Architecture diagram showing flow from user through Copilot Cowork to MCP server on Azure and then to Salesforce, ServiceNow, or Jira via OAuth"
+        chart={`flowchart LR
+  U[User] --> C[Copilot Cowork]
+  C --> PA[Plug-in Action]
+  PA --> APIM[Azure APIM]
+  APIM --> MCP[MCP Server\\nAzure Container Apps]
+  MCP --> SF[Salesforce]
+  MCP --> SN[ServiceNow]
+  MCP --> JR[Jira Cloud]
+  MCP --> KV[Azure Key Vault]
+  PA -. OAuth 2.1 .-> SF
+  PA -. OAuth 2.1 .-> SN
+  PA -. OAuth 2.1 .-> JR`}
+        caption="End-to-end flow: user → Copilot Cowork → plug-in → APIM → MCP server → enterprise system"
       />
 
       <h2 id="lifecycle">Request lifecycle</h2>
       <p>
-        Here is the same flow as a step-by-step sequence. Read it top to bottom:
-        each numbered line is one hop.
+        When a user says &ldquo;show me my open incidents,&rdquo; here is exactly
+        what happens under the hood, step by step.
       </p>
-      <Mermaid
-        chart={LIFECYCLE}
-        alt="A sequence diagram. The user asks Copilot Studio for Jira information. Copilot Studio selects the MCP connector. The Power Platform connector refreshes or obtains the Atlassian user token, then POSTs to /jira-mcp/mcp through API Management with a bearer token. API Management checks CORS, IP, rate limits, and the Authorization header, then forwards /mcp and injects X-Gateway-Token. The FastMCP server verifies the origin and gateway token, binds the bearer token to a request ContextVar, resolves the accessible Jira site, and calls the Jira REST API as the signed-in user. Jira returns a response; the server trims fields and enforces a byte budget, then returns the result back through API Management and the connector to Copilot Studio, which gives the user a natural-language answer."
-        caption="One round trip. Every step maps to a chapter later in this guide."
-      />
-
-      <Callout variant="why" title="Why trace the whole path?">
-        When something breaks in production, the fastest debuggers already have
-        this picture in their head. A 401 vs a 403 vs a payload error each points
-        to a different box. Memorising this flow pays off in{" "}
-        <a href="/troubleshooting/">Troubleshooting</a>.
-      </Callout>
-
-      <h2 id="identity">Where identity flows</h2>
-      <p>
-        The single most important thread to follow is the{" "}
-        <strong>user&apos;s token</strong>. It is created by Atlassian, held by
-        the connector, borrowed by the server for one request, and used to call
-        Jira as the user.
-      </p>
-      <Mermaid
-        chart={IDENTITY}
-        alt="The user authorises the Power Platform connector, which runs the OAuth 2.0 authorization code flow with Atlassian OAuth. Atlassian returns an access token for the user to the connector. The connector sends that token as a bearer Authorization header to the MCP server, which forwards the same bearer token to Jira Cloud. Jira enforces the user's permissions and responds to the MCP server."
-        caption="The server never stores the token — it forwards it, then forgets it."
-      />
-
-      <h2 id="who-does-what">Who does what</h2>
       <Table
-        headers={["Component", "Main responsibility", "Key protection"]}
+        headers={["Step", "What happens", "Where"]}
         rows={[
-          ["Copilot Studio", "Hosts the agent and chooses tools", "—"],
-          [
-            "Power Platform connector",
-            "Runs OAuth, holds and refreshes tokens",
-            "Tokens live here, not in the server",
-          ],
-          [
-            "Azure API Management",
-            "Public gateway and routing",
-            "CORS, IP filtering, rate limits, gateway secret",
-          ],
-          [
-            "FastMCP server",
-            "Runs tools, calls Jira",
-            "Re-checks gateway secret; request-scoped token",
-          ],
-          [
-            "Jira Cloud",
-            "Owns the data",
-            "Enforces the user's permissions",
-          ],
-          ["Key Vault", "Stores the gateway secret", "Secret never in code"],
-          [
-            "Application Insights",
-            "Logs and traces",
-            "Tokens and secrets redacted",
-          ],
+          ["1", "User sends a prompt to Copilot Cowork.", "m365.cloud.microsoft/chat"],
+          ["2", "Cowork matches the prompt to a tool in the plug-in\u2019s action descriptor.", "Copilot orchestrator"],
+          ["3", "Cowork calls the MCP server endpoint over streamable HTTP with the tool name and arguments.", "APIM → MCP server"],
+          ["4", "The MCP server authenticates using the delegated bearer token attached to the request.", "MCP server (auth.py)"],
+          ["5", "The server calls the enterprise API (e.g., ServiceNow Table API) with the user\u2019s token.", "Connector client"],
+          ["6", "The response is trimmed to fit Copilot\u2019s payload limits.", "MCP server (trim.py)"],
+          ["7", "The trimmed result is returned to Cowork, which renders it for the user.", "Copilot Cowork UI"],
         ]}
       />
+      <Callout variant="security" title="Tokens are never logged">
+        The delegated bearer token is request-scoped and stored in a Python{" "}
+        <Code>ContextVar</Code>. It is never written to logs, never persisted to
+        disk, and never shared between requests.
+      </Callout>
 
+      <h2 id="identity">Identity &amp; delegated tokens</h2>
+      <p>
+        The connection uses <strong>OAuth 2.1 with delegated (per-user)
+        tokens</strong>. When the user first invokes the plug-in, Copilot
+        redirects them to the enterprise system&apos;s consent screen. After
+        consent, Copilot holds a short-lived access token (and a refresh token)
+        scoped to <em>that user</em>. Every subsequent tool call sends the token
+        in the request context so the MCP server acts on behalf of the real person
+        — never a shared service account.
+      </p>
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/auth.py (simplified)"
+        code={`from contextvars import ContextVar
+
+_bearer: ContextVar[str] = ContextVar("bearer")
+
+def set_token(token: str) -> None:
+    _bearer.set(token)
+
+def get_token() -> str:
+    return _bearer.get()`}
+      />
+      <Callout variant="why" title="Why delegated over service accounts?">
+        A service-account PAT grants blanket access to <em>all</em> data. A
+        delegated token respects the user&apos;s actual permissions — least
+        privilege by default.
+      </Callout>
+
+      <h2 id="three-systems">The three example systems</h2>
+      <p>
+        This guide ships worked examples for three enterprise systems. Each one
+        follows the exact same architecture — only the OAuth provider details and
+        tool definitions change.
+      </p>
+      <CardGrid cols={3}>
+        <Card title="Salesforce" icon="☁️" eyebrow="CRM">
+          OAuth 2.0 connected app (web server flow). Tools for SOQL queries,
+          record retrieval, case creation, and opportunity updates.
+        </Card>
+        <Card title="ServiceNow" icon="🎫" eyebrow="ITSM">
+          OAuth 2.0 (or basic auth for dev). Tools for incident search, creation,
+          update, and knowledge-base lookup.
+        </Card>
+        <Card title="Jira Cloud" icon="📋" eyebrow="Project tracking">
+          Atlassian OAuth 2.0 (3LO). Tools for JQL search, issue CRUD, comments,
+          and workflow transitions.
+        </Card>
+      </CardGrid>
       <ConceptCheck
         question={
           <p>
-            A request reaches the app host directly (not through APIM) and is
-            rejected with a 403. Which protection caught it, and where is the
-            secret it relied on stored?
+            If you wanted to add a fourth enterprise system (say, GitHub), what
+            would you need to change in the architecture?
           </p>
         }
         answer={
           <p>
-            The <Code>X-Gateway-Token</Code> check caught it: APIM injects that
-            header, and the app verifies it. A direct request never went through
-            APIM, so it lacks the correct token and is rejected. The secret
-            itself is stored in <strong>Azure Key Vault</strong> and read by APIM
-            as a named value.
+            You would add a new connector module on the MCP server with its own
+            OAuth configuration and tool definitions. The architecture stays the
+            same — APIM, Key Vault, and the plug-in action descriptor are
+            unchanged; only the connector client and tools differ.
           </p>
         }
       />

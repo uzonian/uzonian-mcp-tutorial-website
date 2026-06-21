@@ -5,14 +5,14 @@ import { Callout } from "@/components/Callout";
 import { chapters, groupOrder } from "@/lib/chapters";
 
 const ARCH = `flowchart LR
-    User([User]) --> Agent[Copilot Studio agent]
-    Agent --> Connector[Power Platform custom connector]
-    Connector --> APIM[Azure API Management]
-    APIM --> App[Python FastMCP server]
-    App --> Jira[(Jira Cloud REST API)]
-    Connector -. OAuth 2.0 3LO .-> Atlassian[Atlassian OAuth]
-    APIM -. gateway secret .-> KeyVault[(Azure Key Vault)]
-    App -. logs/traces .-> AppInsights[(Application Insights)]`;
+    User([User]) --> Cowork[Copilot Cowork agent]
+    Cowork --> Plugin[Plug-in action]
+    Plugin --> MCP[Remote MCP server on Azure]
+    MCP --> SF[(Salesforce)]
+    MCP --> SN[(ServiceNow)]
+    MCP --> Jira[(Jira Cloud)]
+    Plugin -. OAuth 2.1 sign-in .-> IdP[Resource OAuth]
+    MCP -. secrets .-> KeyVault[(Azure Key Vault)]`;
 
 export default function HomePage() {
   return (
@@ -20,16 +20,19 @@ export default function HomePage() {
       {/* Hero */}
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-azure-50 to-white p-8 dark:border-slate-800 dark:from-azure-950/40 dark:to-slate-950">
         <span className="inline-block rounded-full bg-azure-100 px-3 py-1 text-xs font-semibold text-azure-700 dark:bg-azure-950/60 dark:text-azure-300">
-          Beginner-friendly · Production-grade
+          Beginner-friendly · Extensibility-first
         </span>
         <h1 className="mt-4">
-          Build a production-ready MCP server for Microsoft Copilot Studio
+          Build plug-ins that extend Microsoft Copilot Cowork
         </h1>
         <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">
-          Learn to design, build, secure, test, deploy, and operate a Model
-          Context Protocol (MCP) server in Python — then connect it to a Copilot
-          Studio agent through Azure API Management. The reference example
-          exposes Jira Cloud, but the patterns work for any enterprise system.
+          Learn how a Copilot Cowork plug-in is put together and how it reaches
+          into enterprise systems through a <strong>Model Context Protocol (MCP)
+          connection</strong>. You&apos;ll go deep on the components of that
+          connection, the connection types Cowork supports, and how to set them
+          up — then ship worked example plug-ins for{" "}
+          <strong>Salesforce</strong>, <strong>ServiceNow</strong>, and{" "}
+          <strong>Jira Cloud</strong>.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
@@ -53,59 +56,59 @@ export default function HomePage() {
         This site is written for someone with{" "}
         <strong>limited Python experience</strong> and{" "}
         <strong>limited experience with agentic tools</strong>, who needs to
-        understand the complete path from local development to a working Copilot
-        Studio integration. Every chapter adds plain-English explanations,
-        visuals, hands-on labs, and review checklists.
+        understand the complete path from a local MCP server to a governed Copilot
+        Cowork plug-in. Every chapter adds plain-English explanations, visuals,
+        hands-on labs, and review checklists.
       </p>
 
       <CardGrid cols={3}>
-        <Card title="New to MCP" icon="🌱">
-          Start with <Link href="/before-you-begin/">Before You Begin</Link> for
-          a jargon-free primer, then follow the chapters in order.
+        <Card title="New to plug-ins" icon="🌱">
+          Start with <Link href="/before-you-begin/">Before You Begin</Link> for a
+          jargon-free primer, then follow the chapters in order.
         </Card>
-        <Card title="Want a quick win" icon="⚡">
-          Go straight to the{" "}
-          <Link href="/quickstart/">Quickstart</Link> to run the server locally
-          and pass the smoke test.
+        <Card title="Here for the connection" icon="🔌">
+          Jump to <Link href="/concepts/">Core Concepts</Link> and{" "}
+          <Link href="/anatomy/">Plug-in Anatomy</Link> for the components of an
+          MCP connection.
         </Card>
-        <Card title="Shipping to production" icon="🚀">
-          Jump to{" "}
-          <Link href="/deployment/">Deployment</Link>,{" "}
-          <Link href="/security/">Security</Link>, and the{" "}
-          <Link href="/checklist/">Production Checklist</Link>.
+        <Card title="Want the examples" icon="🧰">
+          Go straight to{" "}
+          <Link href="/extending/">Salesforce, ServiceNow &amp; Jira</Link> for
+          three worked example plug-ins.
         </Card>
       </CardGrid>
 
       {/* What you'll build */}
       <h2>What you&apos;ll build</h2>
       <p>
-        A server that lets an AI agent safely use tools. In the reference
-        implementation, the agent is a Copilot Studio agent and the external
-        system is Jira Cloud. When a user asks{" "}
-        <em>&ldquo;Find my open Jira issues&rdquo;</em>, the MCP server reads the
-        signed-in user&apos;s delegated token, calls Jira as that user, trims the
-        response, and returns a compact result.
+        A Copilot Cowork plug-in that gives the agent real reach into your
+        systems. When a user asks{" "}
+        <em>&ldquo;Prep my standup from my open Jira issues&rdquo;</em>, the plug-in
+        runs a <strong>skill</strong> that calls tools over an{" "}
+        <strong>MCP connection</strong>; the MCP server reads the signed-in
+        user&apos;s delegated token, calls Jira as that user, trims the response,
+        and returns a compact result the agent can act on.
       </p>
 
       <Mermaid
         chart={ARCH}
-        alt="High-level architecture: a user talks to a Copilot Studio agent, which uses a Power Platform custom connector. The connector calls Azure API Management, which forwards to a Python FastMCP server, which calls the Jira Cloud REST API. The connector performs OAuth 2.0 3LO with Atlassian. API Management reads a gateway secret from Azure Key Vault. The server sends logs and traces to Application Insights."
+        alt="High-level architecture: a user talks to a Copilot Cowork agent, which uses a plug-in action. The action calls a remote MCP server hosted on Azure, which calls Salesforce, ServiceNow, and Jira Cloud. The action performs an OAuth 2.1 sign-in with the resource's identity provider. The MCP server reads secrets from Azure Key Vault."
         caption="The big picture. Every chapter zooms into one part of this flow."
       />
 
-      <Callout variant="security" title="Security is central, not an afterthought">
-        This design uses <strong>delegated OAuth 2.0 3LO</strong> so actions run
-        as the signed-in user — never a shared service account or API token.
-        Tokens are request-scoped and never stored, APIM hardens the public
-        edge, and a Key Vault-backed gateway secret proves traffic came through
-        the gateway. You&apos;ll see these themes repeated throughout.
+      <Callout variant="security" title="Extensibility and security go together">
+        The recommended connection type is <strong>OAuth 2.1 with static
+        registration</strong>, so actions run as the signed-in user — never a
+        shared service account or API token. Tokens are request-scoped and never
+        stored, APIM hardens the public edge, and secrets live in Key Vault.
+        You&apos;ll see these themes repeated throughout.
       </Callout>
 
       {/* Learning path */}
       <h2>The learning path</h2>
       <p>
-        Nineteen chapters grouped into six stages. Work through them in order,
-        or use the sidebar and search to jump around.
+        Eighteen chapters grouped into six stages. Work through them in order, or
+        use the sidebar and search to jump around.
       </p>
 
       {groupOrder.map((group) => {

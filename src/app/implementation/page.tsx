@@ -1,387 +1,456 @@
 import { ChapterShell } from "@/components/ChapterShell";
 import { Callout } from "@/components/Callout";
 import { CodeBlock } from "@/components/CodeBlock";
-import { ConceptCheck } from "@/components/ConceptCheck";
-import { Mermaid } from "@/components/Mermaid";
-import { Table, Code } from "@/components/content";
+import { Code } from "@/components/content";
 import { WhatThisFileDoes } from "@/components/WhatThisFileDoes";
+import { VideoCard } from "@/components/VideoCard";
 
-export const metadata = { title: "Implementation Walkthrough" };
-
-const MIDDLEWARE = `flowchart TD
-    A[HTTP request] --> B{Is HTTP?}
-    B -- No --> Z[Pass through]
-    B -- Yes --> C{Origin allowed?}
-    C -- No --> C1[403 Origin not allowed]
-    C -- Yes --> D{Path starts with /mcp?}
-    D -- No --> E[Bind token if present, continue]
-    D -- Yes --> F{Gateway secret configured?}
-    F -- Yes --> G{X-Gateway-Token matches?}
-    G -- No --> G1[403 Not trusted gateway]
-    G -- Yes --> H{Bearer token present?}
-    F -- No --> H
-    H -- No --> H1[401 Missing bearer]
-    H -- Yes --> I[Set ContextVar]
-    I --> J[Call FastMCP app]
-    J --> K[Reset ContextVar]`;
+export const metadata = { title: "Implementation" };
 
 export default function Page() {
   return (
     <ChapterShell
       slug="implementation"
       eyebrow="Chapter 5 · Build"
-      title="Implementation Walkthrough"
-      intro="We follow a request through the code in the exact order it travels: entry point, configuration, request-scoped token, middleware, auth, Jira client, trimming, tools, errors, and telemetry."
+      title="Implementation: Building the MCP Server"
+      intro="File-by-file construction of the Python MCP server that powers a Cowork plug-in. You will build the FastMCP application, configure settings, handle delegated auth, implement payload trimming, write a connector client, register tools, author the manifest files, and package everything for deployment."
       learningGoals={[
-        "Trace how server.py builds and mounts the FastMCP app",
-        "Explain why the user token lives in a ContextVar, not a global",
-        "Read the middleware security flow and its failure responses",
-        "Describe how the Jira client and trimmer keep responses safe and small",
+        "Build a FastMCP server with streamable HTTP transport",
+        "Implement request-scoped delegated auth with a ContextVar",
+        "Add payload trimming to stay within Cowork response limits",
+        "Register tools that call an external API through a connector client",
+        "Author the manifest and ai-plugin.json files for the plug-in package",
       ]}
       toc={[
-        { id: "server", label: "Server entry point" },
-        { id: "config", label: "Configuration" },
-        { id: "context", label: "Request-scoped token" },
-        { id: "middleware", label: "Middleware" },
-        { id: "bearer", label: "Bearer & site resolution" },
-        { id: "jira-client", label: "Jira client" },
-        { id: "search", label: "Modern JQL search" },
-        { id: "trimming", label: "Payload trimming" },
+        { id: "server", label: "server.py" },
+        { id: "config", label: "config.py" },
+        { id: "auth", label: "auth.py" },
+        { id: "trim", label: "trim.py" },
+        { id: "connector-client", label: "Connector client" },
         { id: "tools", label: "Tool registration" },
-        { id: "errors", label: "Error envelope" },
-        { id: "telemetry", label: "Telemetry & redaction" },
+        { id: "manifest-files", label: "Manifest files" },
+        { id: "package", label: "Packaging" },
       ]}
       summary={
         <ul>
           <li>
-            <Code>server.py</Code> builds the FastMCP app, registers tools,
-            mounts it at <Code>/</Code> (so MCP is at <Code>/mcp</Code>), and
-            adds health endpoints.
+            <Code>server.py</Code> creates a FastMCP app with{" "}
+            <Code>stateless_http=True</Code> and <Code>json_response=True</Code>.
           </li>
           <li>
-            The token lives in a <Code>ContextVar</Code> so concurrent users
-            never overlap; middleware sets and resets it.
+            <Code>auth.py</Code> stores the delegated bearer token in a{" "}
+            <Code>ContextVar</Code> so every tool in the request can use it
+            without passing it around.
           </li>
           <li>
-            The Jira client retries transient failures and returns trimmed
-            models; the trimmer enforces a byte budget.
+            <Code>trim.py</Code> enforces a byte budget on tool responses to
+            prevent oversized payloads.
           </li>
-          <li>The error envelope and redacting logger keep failures safe.</li>
+          <li>
+            The connector client wraps the external API; tools call it and
+            return trimmed results.
+          </li>
         </ul>
       }
       reviewItems={[
-        { id: "mount", label: "I know why /mcp is the endpoint" },
-        { id: "ctx", label: "I can explain the ContextVar choice" },
-        { id: "mw", label: "I can read the middleware flow and its 401/403 paths" },
-        { id: "trim", label: "I understand the byte-budget trimming strategy" },
-        { id: "redact", label: "I know what telemetry must never log" },
+        { id: "server", label: "I can create a FastMCP server with streamable HTTP" },
+        { id: "auth", label: "I understand request-scoped delegated auth" },
+        { id: "trim", label: "I know why payload trimming matters" },
+        { id: "tools", label: "I can register tools that call an external API" },
       ]}
     >
-      <h2 id="server">Server entry point</h2>
-      <WhatThisFileDoes
-        path="app/server.py"
-        does={
-          <p>
-            Configures logging and telemetry, creates the FastMCP server,
-            registers tools, mounts MCP into a Starlette app, adds health
-            endpoints and middleware, and starts Uvicorn when run as a module.
-          </p>
-        }
-        edit={
-          <p>
-            Add new health metadata or register new tool modules as your server
-            grows.
-          </p>
-        }
-        dontEdit={
-          <p>
-            The mount path and FastMCP construction — changing them can break the{" "}
-            <Code>/mcp</Code> endpoint and gateway behavior.
-          </p>
-        }
-      />
-      <CodeBlock
-        language="python"
-        code={`mcp = FastMCP(settings.server_name, stateless_http=True, json_response=True)
-register_tools(mcp)
-
-# Mounted at "/", so the MCP endpoint is available at /mcp
-Mount("/", app=mcp.streamable_http_app())`}
-      />
-      <Table
-        headers={["Endpoint", "Purpose"]}
-        rows={[
-          [<Code key="1">/healthz</Code>, "Liveness probe — the process is alive."],
-          [<Code key="2">/readyz</Code>, "Readiness probe — ready to receive traffic."],
-          [<Code key="3">/mcp</Code>, "The MCP endpoint agents call."],
-        ]}
-      />
-
-      <h2 id="config">Configuration</h2>
-      <WhatThisFileDoes
-        path="app/config.py"
-        does={
-          <p>
-            A <Code>Settings</Code> class reads runtime configuration from
-            environment variables and <Code>.env</Code> via{" "}
-            <Code>pydantic-settings</Code>. Safe defaults let the app start
-            locally; production secrets are injected by Azure.
-          </p>
-        }
-        edit={
-          <p>
-            Tune limits like <Code>MAX_RESPONSE_BYTES</Code> or{" "}
-            <Code>DEFAULT_MAX_RESULTS</Code> for your environment.
-          </p>
-        }
-        dontEdit={
-          <p>
-            Don&apos;t hard-code secrets here. Secrets come from the environment
-            or Key Vault references, never the source.
-          </p>
-        }
-      />
-      <Table
-        headers={["Setting", "Default", "Purpose"]}
-        rows={[
-          [<Code key="1">GATEWAY_SHARED_SECRET</Code>, "empty", "Enables the APIM gateway integrity check when set."],
-          [<Code key="2">ALLOWED_ORIGINS</Code>, "Copilot Studio / Power Platform", "Browser origin allow-list."],
-          [<Code key="3">DEFAULT_MAX_RESULTS</Code>, "25", "Default Jira search page size."],
-          [<Code key="4">MAX_RESULTS_CAP</Code>, "50", "Maximum page size accepted from callers."],
-          [<Code key="5">MAX_RESPONSE_BYTES</Code>, "90000", "Response budget after trimming."],
-          [<Code key="6">MAX_TEXT_CHARS</Code>, "2000", "Long-text clipping limit."],
-        ]}
-      />
-
-      <h2 id="context">Request-scoped token storage</h2>
-      <WhatThisFileDoes
-        path="app/context.py"
-        does={
-          <p>
-            Holds the current user&apos;s bearer token while a tool runs — using
-            a <Code>ContextVar</Code> so concurrent requests from different users
-            never overlap.
-          </p>
-        }
-      />
-      <CodeBlock
-        language="python"
-        code={`_user_token: ContextVar[str | None] = ContextVar("user_token", default=None)`}
-      />
-      <Callout variant="why" title="Why not a normal global variable?">
-        A normal global is shared across all requests. Under concurrency, User
-        A&apos;s token could leak into User B&apos;s request — a serious
-        cross-user data risk. A <Code>ContextVar</Code> gives each async request
-        its own isolated value. The middleware resets it in a{" "}
-        <Code>finally</Code> block so the token never persists after the request.
-      </Callout>
-
-      <h2 id="middleware">Middleware</h2>
-      <WhatThisFileDoes
-        path="app/middleware.py"
-        does={
-          <p>
-            Runs before the MCP server handles a request. For protected{" "}
-            <Code>/mcp</Code> routes it checks the origin, optionally verifies
-            the gateway token, requires a bearer token, binds it to the request
-            context, and resets it afterward.
-          </p>
-        }
-        dontEdit={
-          <p>
-            The order of these checks is security-critical. Read the{" "}
-            <a href="/security/">Security</a> chapter before changing anything
-            here.
-          </p>
-        }
-      />
-      <Mermaid
-        chart={MIDDLEWARE}
-        alt="Middleware decision flow. If the request isn't HTTP, pass through. If the origin isn't allowed, return 403. If the path doesn't start with /mcp, bind the token if present and continue. If it does start with /mcp: when a gateway secret is configured, the X-Gateway-Token must match or return 403; then a bearer token must be present or return 401. When present, set the ContextVar, call the FastMCP app, and reset the ContextVar afterward."
-        caption="Every protected /mcp request passes these gates in order."
-      />
-      <Callout variant="note">
-        The middleware allows requests with no <Code>Origin</Code> header — handy
-        for server-to-server and local test calls — while still enforcing the
-        bearer token and (when configured) the gateway secret.
-      </Callout>
-
-      <h2 id="bearer">Bearer token & Jira site resolution</h2>
-      <WhatThisFileDoes
-        path="app/auth/bearer.py"
-        does={
-          <p>
-            Requires a delegated bearer token, then calls Atlassian&apos;s
-            accessible-resources endpoint to find the user&apos;s Jira site
-            (its <Code>cloudId</Code>). Caches the result keyed by a SHA-256 hash
-            of the token — never the raw token.
-          </p>
-        }
-      />
-      <CodeBlock
-        language="text"
-        noCopy
-        code={`Jira Cloud API URL shape:
-https://api.atlassian.com/ex/jira/{cloudId}/rest/api/3
-
-Site discovery call:
-https://api.atlassian.com/oauth/token/accessible-resources`}
-      />
-      <p>Site selection rules, in order:</p>
-      <ol>
-        <li>
-          If <Code>JIRA_CLOUD_ID</Code> is configured, use it.
-        </li>
-        <li>
-          Else if <Code>JIRA_SITE_URL</Code> is configured, find the matching
-          resource.
-        </li>
-        <li>Else prefer a resource with Jira scopes.</li>
-        <li>Else use the first accessible resource.</li>
-      </ol>
-
-      <h2 id="jira-client">Jira client</h2>
-      <WhatThisFileDoes
-        path="app/jira/client.py"
-        does={
-          <p>
-            An async wrapper around Jira Cloud REST calls. It requires the
-            current user token, resolves the site, builds URLs, sends the
-            user&apos;s bearer token to Jira, retries transient failures (HTTP
-            429, 5xx, network) up to three times, and converts auth failures into
-            safe errors.
-          </p>
-        }
-      />
-      <Table
-        headers={["Client method", "Jira operation"]}
-        rows={[
-          [<Code key="1">whoami()</Code>, <Code key="1b">GET /myself</Code>],
-          [<Code key="2">search_issues()</Code>, <Code key="2b">POST /search/jql</Code>],
-          [<Code key="3">get_issue()</Code>, <Code key="3b">GET /issue/&#123;key&#125;</Code>],
-          [<Code key="4">create_issue()</Code>, <Code key="4b">POST /issue</Code>],
-          [<Code key="5">add_comment()</Code>, <Code key="5b">POST /issue/&#123;key&#125;/comment</Code>],
-          [<Code key="6">transition_issue()</Code>, <Code key="6b">POST /issue/&#123;key&#125;/transitions</Code>],
-        ]}
-      />
-
-      <h2 id="search">Modern JQL search</h2>
+      <h2 id="server">server.py — the FastMCP application</h2>
       <p>
-        The implementation uses token-based paging, which Atlassian is moving
-        toward, instead of legacy offset paging:
+        The server module is the entry point. It creates a FastMCP instance
+        configured for production use behind an API gateway: stateless (no
+        session affinity required) and returning buffered JSON instead of a
+        long-lived stream.
       </p>
-      <CodeBlock
-        language="json"
-        code={`{
-  "jql": "...",
-  "maxResults": 25,
-  "fields": ["summary", "status", "assignee"],
-  "nextPageToken": "optional"
-}`}
-      />
-      <Callout variant="beginner">
-        Don&apos;t calculate offsets. To get the next page, pass the returned{" "}
-        <Code>nextPageToken</Code> into the next <Code>jira_search</Code> call.
-        The response&apos;s <Code>isLast</Code> tells you when to stop.
-      </Callout>
-
-      <h2 id="trimming">Payload trimming</h2>
       <WhatThisFileDoes
-        path="app/jira/trim.py"
+        path="src/cowork_mcp/server.py"
         does={
-          <p>
-            Protects the agent platform from oversized responses. It requests
-            only <Code>summary</Code>, <Code>status</Code>, and{" "}
-            <Code>assignee</Code> from Jira, converts issues into a compact
-            model, and enforces a byte budget.
-          </p>
+          <span>
+            Instantiates the FastMCP app, configures transport, and imports
+            connector modules that register tools.
+          </span>
+        }
+        edit={<span>Server name and connector imports.</span>}
+        dontEdit={
+          <span>
+            The <Code>stateless_http</Code> and <Code>json_response</Code> flags.
+          </span>
         }
       />
-      <p>Budget enforcement strategy:</p>
-      <ol>
-        <li>Serialize the result and check byte size.</li>
-        <li>If it fits, return it.</li>
-        <li>If not, clip summaries more aggressively.</li>
-        <li>If still too big, drop trailing issues.</li>
-        <li>Report how many issues were omitted.</li>
-      </ol>
-      <Callout variant="production">
-        This is far safer than returning raw Jira JSON, which can break Copilot
-        Studio with <Code>AsyncResponsePayloadTooLarge</Code>.
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/server.py"
+        code={`"""FastMCP server for Copilot Cowork plug-in."""
+from mcp.server.fastmcp import FastMCP
+from .config import settings
+
+mcp = FastMCP(
+    settings.server_name,
+    stateless_http=True,
+    json_response=True,
+)
+
+# Import connectors to register their tools with the mcp instance
+from .connectors import salesforce  # noqa: E402, F401
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="0.0.0.0", port=settings.port)`}
+      />
+      <Callout variant="why" title="Why stateless_http?">
+        Azure Container Apps and APIM can route any request to any replica. A
+        stateless server means no session stickiness is needed — each HTTP
+        request carries everything the server needs to respond.
       </Callout>
+
+      <h2 id="config">config.py — Pydantic settings</h2>
+      <p>
+        Configuration lives in one place: a Pydantic{" "}
+        <Code>BaseSettings</Code> class that reads from environment variables
+        (and optionally a <Code>.env</Code> file). This keeps secrets out of
+        source control and makes local / cloud config trivial to swap.
+      </p>
+      <WhatThisFileDoes
+        path="src/cowork_mcp/config.py"
+        does={
+          <span>
+            Defines all configuration (URLs, secrets, limits) as typed Pydantic
+            settings loaded from environment variables.
+          </span>
+        }
+        edit={<span>Add new config fields as you add connectors.</span>}
+        dontEdit={
+          <span>
+            The <Code>model_config</Code> block — it controls <Code>.env</Code>{" "}
+            loading.
+          </span>
+        }
+      />
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/config.py"
+        code={`"""Centralised configuration via Pydantic settings."""
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    server_name: str = "cowork-mcp"
+    port: int = 8000
+
+    # Salesforce
+    sf_instance_url: str = "https://myorg.my.salesforce.com"
+    sf_client_id: str = ""
+    sf_client_secret: str = ""
+
+    # Payload trimming
+    max_response_bytes: int = 8192
+
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+settings = Settings()`}
+      />
+
+      <h2 id="auth">auth.py — request-scoped delegated bearer token</h2>
+      <p>
+        When Cowork calls a tool, the request carries a delegated bearer token
+        that represents the signed-in user. Your server must use <em>that</em>{" "}
+        token — not a service account — when calling the external API. A{" "}
+        <Code>ContextVar</Code> stores the token for the duration of one
+        request so every function in the call stack can access it without
+        passing it as an argument.
+      </p>
+      <WhatThisFileDoes
+        path="src/cowork_mcp/auth.py"
+        does={
+          <span>
+            Stores the per-request delegated bearer token in a{" "}
+            <Code>ContextVar</Code> and provides a <Code>get_token()</Code>{" "}
+            accessor.
+          </span>
+        }
+        edit={<span>Token extraction logic if your gateway changes headers.</span>}
+        dontEdit={
+          <span>
+            The ContextVar pattern itself — it ensures request isolation.
+          </span>
+        }
+      />
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/auth.py"
+        code={`"""Request-scoped delegated bearer token."""
+from contextvars import ContextVar
+
+_current_token: ContextVar[str] = ContextVar("_current_token", default="")
+
+def set_token(token: str) -> None:
+    """Set the delegated bearer token for the current request."""
+    _current_token.set(token)
+
+def get_token() -> str:
+    """Retrieve the delegated bearer token for the current request."""
+    token = _current_token.get()
+    if not token:
+        raise RuntimeError("No delegated token set for this request")
+    return token`}
+      />
+      <Callout variant="security" title="Never log the token">
+        The delegated token is the user&apos;s credential. Never log it, store
+        it in a database, or return it in a tool response. It is valid only for
+        this request.
+      </Callout>
+
+      <h2 id="trim">trim.py — payload trimming and byte budget</h2>
+      <p>
+        Cowork enforces limits on how large a tool response can be. If your tool
+        returns a huge JSON blob, the response will be truncated or rejected.{" "}
+        <Code>trim.py</Code> gives you a <Code>trim_payload</Code> function that
+        keeps the response within a byte budget by removing low-priority fields
+        and truncating large text values.
+      </p>
+      <WhatThisFileDoes
+        path="src/cowork_mcp/trim.py"
+        does={
+          <span>
+            Provides <Code>trim_payload()</Code> that serialises a dict to JSON,
+            checks byte size, and trims fields until it fits.
+          </span>
+        }
+        edit={<span>Priority rules for which fields to drop first.</span>}
+        dontEdit={
+          <span>
+            The byte-counting logic — it must match UTF-8 encoded size.
+          </span>
+        }
+      />
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/trim.py"
+        code={`"""Payload trimming to stay within Cowork's byte budget."""
+import json
+from .config import settings
+
+def trim_payload(data: dict, max_bytes: int | None = None) -> dict:
+    """Trim a response dict to fit within max_bytes (UTF-8)."""
+    budget = max_bytes or settings.max_response_bytes
+    encoded = json.dumps(data, default=str).encode()
+    if len(encoded) <= budget:
+        return data
+
+    # Strategy: remove known large fields, then truncate string values
+    drop_fields = ["description", "body", "comments", "changelog"]
+    trimmed = {k: v for k, v in data.items() if k not in drop_fields}
+    encoded = json.dumps(trimmed, default=str).encode()
+    if len(encoded) <= budget:
+        return trimmed
+
+    # Truncate remaining long strings
+    for key, value in list(trimmed.items()):
+        if isinstance(value, str) and len(value) > 200:
+            trimmed[key] = value[:200] + "…"
+    return trimmed`}
+      />
+
+      <h2 id="connector-client">Connector client</h2>
+      <p>
+        The connector client is a thin wrapper around the external system&apos;s
+        REST API. It uses <Code>httpx.AsyncClient</Code>, attaches the delegated
+        bearer token from <Code>auth.py</Code>, and returns raw response data.
+        Tools call the client and post-process with <Code>trim_payload</Code>.
+      </p>
+      <WhatThisFileDoes
+        path="src/cowork_mcp/connectors/salesforce.py"
+        does={
+          <span>
+            Implements the Salesforce REST client and registers all
+            Salesforce-specific MCP tools.
+          </span>
+        }
+        edit={<span>API version, endpoints, and tool parameter schemas.</span>}
+        dontEdit={
+          <span>
+            The token-injection pattern via <Code>get_token()</Code>.
+          </span>
+        }
+      />
+      <CodeBlock
+        language="python"
+        filename="src/cowork_mcp/connectors/salesforce.py"
+        code={`"""Salesforce connector — REST client and MCP tools."""
+import httpx
+from ..server import mcp
+from ..auth import get_token
+from ..config import settings
+from ..trim import trim_payload
+
+API = f"{settings.sf_instance_url}/services/data/v60.0"
+
+async def _sf_get(path: str) -> dict:
+    """Authenticated GET to Salesforce REST API."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{API}{path}",
+            headers={"Authorization": f"******"},
+        )
+        resp.raise_for_status()
+    return resp.json()
+
+async def _sf_post(path: str, body: dict) -> dict:
+    """Authenticated POST to Salesforce REST API."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{API}{path}",
+            headers={"Authorization": f"******"},
+            json=body,
+        )
+        resp.raise_for_status()
+    return resp.json()`}
+      />
 
       <h2 id="tools">Tool registration</h2>
       <p>
-        Tools are registered in <Code>app/tools/__init__.py</Code> with the{" "}
-        <Code>@mcp.tool()</Code> decorator. The function name becomes the tool
-        name; the docstring becomes the description.
+        Tools are plain <Code>async</Code> functions decorated with{" "}
+        <Code>@mcp.tool()</Code>. FastMCP reads the function name, docstring,
+        and type hints to build the tool schema that Cowork discovers. Each tool
+        calls the connector client and returns a trimmed payload.
       </p>
       <CodeBlock
         language="python"
+        filename="src/cowork_mcp/connectors/salesforce.py (tools)"
         code={`@mcp.tool()
-@_guard
-async def jira_get_issue(issue_key: str) -> dict:
-    """Get one Jira issue by key, trimmed to id, key, status, summary, assignee, and URL."""
-    async with JiraClient() as jira:
-        return _dump(await jira.get_issue(issue_key))`}
-      />
+async def salesforce_whoami() -> dict:
+    """Return the currently signed-in Salesforce user."""
+    data = await _sf_get("/chatter/users/me")
+    return trim_payload(data)
 
-      <h2 id="errors">Error envelope</h2>
+@mcp.tool()
+async def salesforce_query(soql: str) -> dict:
+    """Execute a SOQL query against Salesforce."""
+    data = await _sf_get(f"/query?q={soql}")
+    return trim_payload(data)
+
+@mcp.tool()
+async def salesforce_get_record(sobject: str, record_id: str) -> dict:
+    """Retrieve a single Salesforce record by type and ID."""
+    data = await _sf_get(f"/sobjects/{sobject}/{record_id}")
+    return trim_payload(data)
+
+@mcp.tool()
+async def salesforce_create_case(subject: str, description: str, account_id: str) -> dict:
+    """Create a new Salesforce Case."""
+    body = {"Subject": subject, "Description": description, "AccountId": account_id}
+    data = await _sf_post("/sobjects/Case", body)
+    return trim_payload(data)
+
+@mcp.tool()
+async def salesforce_update_opportunity(opportunity_id: str, stage: str) -> dict:
+    """Update an Opportunity's stage."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            f"{API}/sobjects/Opportunity/{opportunity_id}",
+            headers={"Authorization": f"******"},
+            json={"StageName": stage},
+        )
+        resp.raise_for_status()
+    return {"id": opportunity_id, "stage": stage, "updated": True}`}
+      />
+      <Callout variant="tip" title="One function = one tool">
+        Keep tools focused. If a workflow needs multiple API calls, make them
+        separate tools and let the agent orchestrate. This gives Cowork maximum
+        flexibility in multi-step tasks.
+      </Callout>
+
+      <h2 id="manifest-files">Manifest files</h2>
       <p>
-        The <Code>_guard</Code> decorator turns exceptions into structured
-        results so agents can handle them gracefully instead of seeing a broken
-        transport:
+        With the server built, you create the plug-in package files. The Agents
+        Toolkit generates most of this, but understanding the structure helps you
+        debug and customise.
       </p>
       <CodeBlock
         language="json"
+        filename="plugins/salesforce/manifest.json"
         code={`{
-  "error": "forbidden",
-  "status": 403,
-  "message": "Jira rejected the delegated token or the user lacks permission."
+  "$schema": "https://developer.microsoft.com/json-schemas/copilot/plugin/v2.2/schema.json",
+  "version": "1.0.0",
+  "name": { "short": "Salesforce Cowork", "full": "Salesforce Cowork Plug-in" },
+  "description": { "short": "Connect Copilot Cowork to Salesforce CRM" },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "copilotAgents": {
+    "declarativeAgents": [
+      { "id": "salesforceAgent", "file": "declarativeAgent.json" }
+    ]
+  }
 }`}
       />
-      <Callout variant="warning">
-        The guard includes a broad final catch only to avoid crashing the MCP
-        transport on unexpected errors. Keep it <strong>logging-only</strong> —
-        never use a broad catch to silently hide expected validation failures.
-      </Callout>
-
-      <h2 id="telemetry">Telemetry & redaction</h2>
-      <WhatThisFileDoes
-        path="app/telemetry.py"
-        does={
-          <p>
-            Configures logging with a filter that masks bearer tokens,
-            authorization headers, and gateway token headers. If{" "}
-            <Code>APPLICATIONINSIGHTS_CONNECTION_STRING</Code> is set, it
-            configures Azure Monitor export.
-          </p>
-        }
+      <CodeBlock
+        language="json"
+        filename="plugins/salesforce/ai-plugin.json"
+        code={`{
+  "schema_version": "v2.2",
+  "name_for_human": "Salesforce MCP",
+  "runtimes": [
+    {
+      "type": "OpenApi",
+      "auth": { "type": "OAuthPluginVault" },
+      "spec": { "url": "https://my-mcp.azurecontainerapps.io/mcp" },
+      "run_for_functions": [
+        "salesforce_whoami",
+        "salesforce_query",
+        "salesforce_get_record",
+        "salesforce_create_case",
+        "salesforce_update_opportunity"
+      ]
+    }
+  ],
+  "functions": [
+    { "name": "salesforce_whoami", "description": "Return the signed-in user." },
+    { "name": "salesforce_query", "description": "Execute a SOQL query.", "parameters": { "type": "object", "properties": { "soql": { "type": "string" } }, "required": ["soql"] } },
+    { "name": "salesforce_get_record", "description": "Get a record by type and ID.", "parameters": { "type": "object", "properties": { "sobject": { "type": "string" }, "record_id": { "type": "string" } }, "required": ["sobject", "record_id"] } },
+    { "name": "salesforce_create_case", "description": "Create a Case.", "parameters": { "type": "object", "properties": { "subject": { "type": "string" }, "description": { "type": "string" }, "account_id": { "type": "string" } }, "required": ["subject", "description", "account_id"] } },
+    { "name": "salesforce_update_opportunity", "description": "Update an Opportunity stage.", "parameters": { "type": "object", "properties": { "opportunity_id": { "type": "string" }, "stage": { "type": "string" } }, "required": ["opportunity_id", "stage"] } }
+  ]
+}`}
       />
-      <Callout variant="security" title="Never log secrets">
-        Never log raw user tokens, refresh tokens, API keys, or gateway secrets.
-        The redacting filter exists precisely so an accidental{" "}
-        <Code>log.info(headers)</Code> doesn&apos;t leak a credential into your
-        telemetry.
-      </Callout>
 
-      <ConceptCheck
-        question={
-          <p>
-            The middleware sets the token in a <Code>ContextVar</Code> and resets
-            it in a <Code>finally</Code> block. What bug could appear if you
-            forgot the reset?
-          </p>
-        }
-        answer={
-          <p>
-            The token could linger in the context and be reused by a later
-            request that should have been anonymous — or, worse, by a different
-            user&apos;s request if the runtime reuses the context. Resetting in{" "}
-            <Code>finally</Code> guarantees cleanup even when the tool raises an
-            exception.
-          </p>
-        }
+      <h2 id="package">Packaging</h2>
+      <p>
+        The server is a standard Python package with a{" "}
+        <Code>pyproject.toml</Code> or <Code>requirements.txt</Code>. For Azure
+        Container Apps you add a <Code>Dockerfile</Code>; for App Service a
+        startup command suffices. The plug-in folder is uploaded via the Agents
+        Toolkit or Teams Admin Center.
+      </p>
+      <CodeBlock
+        language="text"
+        filename="requirements.txt"
+        code={`mcp[cli]>=1.9.0
+pydantic-settings>=2.0
+httpx>=0.27
+uvicorn>=0.30`}
+      />
+      <CodeBlock
+        language="bash"
+        filename="Dockerfile (Container Apps)"
+        code={`FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY src/ src/
+CMD ["python", "-m", "src.cowork_mcp.server"]`}
+      />
+      <Callout variant="production" title="Pin your dependencies">
+        Always pin exact versions in production. Use{" "}
+        <Code>pip-compile</Code> or <Code>uv lock</Code> to generate a
+        lockfile.
+      </Callout>
+      <VideoCard
+        verified={false}
+        concept="Building an MCP server with FastMCP for Copilot Cowork"
+        level="intermediate"
+        searchQuery="FastMCP Python MCP server tutorial Copilot Cowork plug-in build"
+        why="Seeing the server come together on screen reinforces the file-by-file progression."
       />
     </ChapterShell>
   );
