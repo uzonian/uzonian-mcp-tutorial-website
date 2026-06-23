@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, "Courier New",
+    monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    @apply bg-white text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  }
+
+  h1 {
+    @apply text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl dark:text-white;
+  }
+
+  h2 {
+    @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white;
+  }
+
+  h3 {
+    @apply text-xl font-semibold text-slate-900 dark:text-white;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  /* Accessible focus ring for keyboard users. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-azure-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+}
